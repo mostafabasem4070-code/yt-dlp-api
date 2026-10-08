@@ -35,8 +35,25 @@ def health_check():
         "documentation": "/docs",
         "endpoints": {
             "POST /api/extract": "إرسال رابط الفيديو عبر JSON body: {'url': '...'}",
-            "GET /api/extract": "إرسال رابط الفيديو عبر Query param: /api/extract?url=..."
+            "GET /api/extract": "إرسال رابط الفيديو عبر Query param: /api/extract?url=...",
+            "GET /api/debug": "فحص حالة الكوكيز والبيئة على السيرفر"
         }
+    }
+
+@app.get("/api/debug", tags=["Diagnostics"])
+def debug_info():
+    """فحص توفر ملف الكوكيز وأدوات النظام (NodeJS, FFMPEG)"""
+    import os, shutil
+    from extractor import get_cookie_file_path
+    cookie_path = get_cookie_file_path()
+    return {
+        "cookies_found": cookie_path is not None,
+        "cookies_path": cookie_path,
+        "cookies_size_bytes": os.path.getsize(cookie_path) if cookie_path and os.path.exists(cookie_path) else 0,
+        "node_installed": shutil.which("node") is not None,
+        "ffmpeg_installed": shutil.which("ffmpeg") is not None,
+        "current_directory": os.getcwd(),
+        "files_in_current_dir": os.listdir(os.getcwd())[:15]
     }
 
 def handle_extraction(url: str):

@@ -6,17 +6,33 @@ import yt_dlp
 
 logger = logging.getLogger(__name__)
 
-# دعم قراءة ملف الكوكيز أو متغير البيئة لتجاوز حظر YouTube في خوادم السحاب
-COOKIES_FILE = os.getenv("COOKIES_FILE", "cookies.txt")
-env_cookies = os.getenv("YOUTUBE_COOKIES")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_COOKIES_FILE = os.path.join(BASE_DIR, "cookies.txt")
+COOKIES_FILE = os.getenv("COOKIES_FILE", DEFAULT_COOKIES_FILE)
 
-if env_cookies and not os.path.exists(COOKIES_FILE):
+# إذا تم تمرير الكوكيز كنص عبر متغير البيئة YOUTUBE_COOKIES في Railway
+env_cookies = os.getenv("YOUTUBE_COOKIES")
+if env_cookies:
     try:
         with open(COOKIES_FILE, "w", encoding="utf-8") as f:
             f.write(env_cookies.strip())
-        logger.info("Successfully created cookies.txt from YOUTUBE_COOKIES environment variable.")
+        logger.info(f"Successfully written YOUTUBE_COOKIES to: {COOKIES_FILE}")
     except Exception as e:
         logger.warning(f"Could not write YOUTUBE_COOKIES to file: {e}")
+
+def get_cookie_file_path() -> Optional[str]:
+    """العثور على مسار ملف الكوكيز المؤكد."""
+    candidates = [
+        COOKIES_FILE,
+        os.path.join(BASE_DIR, "cookies.txt"),
+        os.path.join(os.getcwd(), "cookies.txt"),
+        "/app/cookies.txt",
+        "/tmp/cookies.txt",
+    ]
+    for path in candidates:
+        if path and os.path.exists(path) and os.path.getsize(path) > 10:
+            return path
+    return None
 
 def format_bytes(size_bytes: Optional[int]) -> Optional[str]:
     """تحويل حجم الملف بالبايت إلى صيغة مقروءة (MB, GB, إلخ)."""
@@ -58,9 +74,12 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
     }
 
     # إضافة ملف الكوكيز إذا كان متوفراً
-    if os.path.exists(COOKIES_FILE):
-        ydl_opts['cookiefile'] = COOKIES_FILE
-        logger.info(f"Using cookies from: {COOKIES_FILE}")
+    cookie_path = get_cookie_file_path()
+    if cookie_path:
+        ydl_opts['cookiefile'] = cookie_path
+        logger.info(f"Using cookies from: {cookie_path}")
+    else:
+        logger.warning("No cookies.txt found! Requests may fail on datacenter IPs.")
 
     # دعم البروكسي اختياري في حال الحاجة
     proxy = os.getenv("YOUTUBE_PROXY") or os.getenv("HTTP_PROXY")
