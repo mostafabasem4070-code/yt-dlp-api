@@ -1,9 +1,12 @@
 import os
+import time
 import math
+import shutil
 import logging
 from typing import Dict, Any, List, Optional
 import yt_dlp
 from log_manager import YtDlpLogger
+from cookie_manager import get_active_cookie_path, save_cookies_content, analyze_cookies_health, read_active_cookies
 
 logger = logging.getLogger("youtube_service")
 
@@ -11,29 +14,20 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_COOKIES_FILE = os.path.join(BASE_DIR, "cookies.txt")
 COOKIES_FILE = os.getenv("COOKIES_FILE", DEFAULT_COOKIES_FILE)
 
-# إذا تم تمرير الكوكيز كنص عبر متغير البيئة YOUTUBE_COOKIES في Railway
+# إذا تم تمرير الكوكيز كنص عبر متغير البيئة YOUTUBE_COOKIES (بأي صيغة: JSON أو Netscape)
 env_cookies = os.getenv("YOUTUBE_COOKIES")
 if env_cookies:
     try:
-        with open(COOKIES_FILE, "w", encoding="utf-8") as f:
-            f.write(env_cookies.strip())
-        logger.info(f"Successfully written YOUTUBE_COOKIES to: {COOKIES_FILE}")
+        res = save_cookies_content(env_cookies)
+        logger.info(f"Successfully loaded and parsed YOUTUBE_COOKIES environment variable (Format: {res.get('detected_format')})")
     except Exception as e:
-        logger.warning(f"Could not write YOUTUBE_COOKIES to file: {e}")
+        logger.warning(f"Could not parse YOUTUBE_COOKIES environment variable: {e}")
+
 
 def get_cookie_file_path() -> Optional[str]:
     """العثور على مسار ملف الكوكيز المؤكد مع التحقق من الحجم والصلاحية."""
-    candidates = [
-        COOKIES_FILE,
-        os.path.join(BASE_DIR, "cookies.txt"),
-        os.path.join(os.getcwd(), "cookies.txt"),
-        "/app/cookies.txt",
-        "/tmp/cookies.txt",
-    ]
-    for path in candidates:
-        if path and os.path.exists(path) and os.path.getsize(path) > 10:
-            return os.path.abspath(path)
-    return None
+    return get_active_cookie_path()
+
 
 def format_bytes(size_bytes: Optional[int]) -> Optional[str]:
     """تحويل حجم الملف بالبايت إلى صيغة مقروءة (MB, GB, إلخ)."""
@@ -44,6 +38,7 @@ def format_bytes(size_bytes: Optional[int]) -> Optional[str]:
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
     return f"{s} {units[i]}"
+
 
 def format_duration(seconds: Optional[int]) -> Optional[str]:
     """تحويل مدة الفيديو بالثواني إلى صيغة دقيقة:ثانية أو ساعة:دقيقة:ثانية."""
@@ -56,9 +51,18 @@ def format_duration(seconds: Optional[int]) -> Optional[str]:
         return f"{hours:02d}:{minutes:02d}:{secs:02d}"
     return f"{minutes:02d}:{secs:02d}"
 
+
+def _get_js_runtime_config() -> Dict[str, Any]:
+    """اكتشاف محرك جافاسكريبت المتاح (Node.js) لحل تحديات البوت والتوقيع في يوتيوب."""
+    node_path = shutil.which("node")
+    if node_path:
+        return {'node': {}}
+    return {}
+
+
 def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[List[str]] = None) -> Dict[str, Any]:
-    """تنفيذ استخراج yt-dlp بإعدادات محددة وسجل مخصص."""
-    ydl_opts = {
+    """تنفيذ استخراج yt-dlp بإعدادات متطورة وسجل مخصص وحل التحديات."""
+    ydl_opts: Dict[str, Any] = {
         'quiet': False,
         'no_warnings': False,
         'skip_download': True,
@@ -66,11 +70,15 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
         'logger': YtDlpLogger(),
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
         },
-        'js_runtimes': {'node': {}},
-        'remote_components': ['ejs:github']
+        'remote_components': {'ejs:github'}
     }
+
+    # إعداد محرك JavaScript إن وجد
+    js_conf = _get_js_runtime_config()
+    if js_conf:
+        ydl_opts['js_runtimes'] = js_conf
 
     if use_cookies:
         cookie_path = get_cookie_file_path()
@@ -78,9 +86,9 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
             ydl_opts['cookiefile'] = cookie_path
             logger.info(f"Using cookies from: {cookie_path}")
         else:
-            logger.warning("Cookie file requested but none found on disk.")
+            logger.info("Cookie file requested but none found on disk; proceeding as guest.")
     else:
-        logger.info("Attempting extraction without cookies.")
+        logger.info("Explicitly attempting extraction without cookies (guest mode).")
 
     if custom_clients:
         ydl_opts['extractor_args'] = {
@@ -101,36 +109,42 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
             raise ValueError("No video data returned by yt-dlp.")
         return info
 
+
 def extract_youtube_info(url: str) -> Dict[str, Any]:
     """
-    استخراج تفاصيل الفيديو والروابط المباشرة المؤقتة مع آلية إعادة محاولة ذكية
-    لتجاوز خطأ 'The page needs to be reloaded' أو تحديات البوت.
+    استخراج تفاصيل الفيديو والروابط المباشرة المؤقتة مع آلية ذكية متعددة المراحل
+    لتجاوز أخطاء البوت أو انتهاء الكوكيز بأفضل أداء ممكن.
     """
     info = None
     last_error = None
+    strategy_used = "cookies"
 
-    # الاستراتيجية الأولى: الاستخراج الطبيعي مع الكوكيز والمكونات البرمجية
+    # الاستراتيجية الأولى: الاستخراج الكامل مع الكوكيز النشطة وحل التحديات عبر Node
     try:
         logger.info(f"Strategy 1: Full extraction with cookies for URL: {url}")
         info = _run_yt_dlp(url, use_cookies=True)
+        strategy_used = "cookies_standard"
     except Exception as e:
         last_error = e
         err_str = str(e)
         logger.warning(f"Strategy 1 failed with error: {err_str}")
 
-        # إذا كان الخطأ "The page needs to be reloaded" أو خطأ متعلق بالكوكيز
-        if "The page needs to be reloaded" in err_str or "Sign in to confirm" in err_str:
-            # الاستراتيجية الثانية: محاولة استخدام عملاء بدلاء (tv, mweb, web)
+        # إذا كان الخطأ متعلق بإعادة تحميل الصفحة أو طلب تسجيل الدخول أو تحدي بوت
+        if "The page needs to be reloaded" in err_str or "Sign in to confirm" in err_str or "Please sign in" in err_str:
+            # الاستراتيجية الثانية: محاولة استخدام عملاء ويب مدمجين
             try:
-                logger.info("Strategy 2: Retrying with alternate player clients (tv, mweb, web)...")
-                info = _run_yt_dlp(url, use_cookies=True, custom_clients=['tv', 'mweb', 'web'])
+                logger.info("Strategy 2: Retrying with web_embedded and android clients...")
+                info = _run_yt_dlp(url, use_cookies=True, custom_clients=['web_embedded', 'android'])
+                strategy_used = "cookies_fallback_client"
             except Exception as e2:
                 last_error = e2
                 logger.warning(f"Strategy 2 failed: {str(e2)}")
-                # الاستراتيجية الثالثة: محاولة بدون كوكيز (أحياناً الكوكيز المنتهية تسبب reload)
+
+                # الاستراتيجية الثالثة: محاولة كزائر بدون كوكيز (غالباً تنجح للفيديوهات العامة حتى لو الكوكيز منتهية)
                 try:
-                    logger.info("Strategy 3: Retrying without cookies...")
+                    logger.info("Strategy 3: Retrying in guest mode without cookies...")
                     info = _run_yt_dlp(url, use_cookies=False)
+                    strategy_used = "guest_no_cookies"
                 except Exception as e3:
                     last_error = e3
                     logger.error(f"Strategy 3 failed: {str(e3)}")
@@ -205,6 +219,7 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
 
     return {
         "status": "success",
+        "strategy_used": strategy_used,
         "video_info": {
             "id": video_id,
             "title": title,
@@ -229,3 +244,30 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
             "audio_only": audio_only,
         }
     }
+
+
+def test_cookie_health_live(test_url: str = "https://www.youtube.com/watch?v=dQw4w9WgXcQ") -> Dict[str, Any]:
+    """
+    إجراء فحص حي فوري للكوكيز المسجلة عبر طلب تجريبي وحساب وقت الاستجابة
+    """
+    start_time = time.time()
+    try:
+        data = extract_youtube_info(test_url)
+        elapsed_sec = round(time.time() - start_time, 2)
+        return {
+            "success": True,
+            "elapsed_seconds": elapsed_sec,
+            "video_title": data["video_info"]["title"],
+            "uploader": data["video_info"]["uploader"],
+            "total_formats": data["stats"]["total_formats"],
+            "strategy": data.get("strategy_used"),
+            "message": f"تم الاتصال وفحص الروابط بنجاح في {elapsed_sec} ثانية! (عدد الجودات: {data['stats']['total_formats']})"
+        }
+    except Exception as e:
+        elapsed_sec = round(time.time() - start_time, 2)
+        return {
+            "success": False,
+            "elapsed_seconds": elapsed_sec,
+            "error": str(e),
+            "message": f"فشل الفحص الحي: {str(e)}"
+        }

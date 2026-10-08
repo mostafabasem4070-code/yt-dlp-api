@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مركز التحكم بالكوكيز واستخراج روابط يوتيوب | YouTube API Hub</title>
+    <meta name="description" content="واجهة تحكم متطورة لإدارة وتحديث كوكيز يوتيوب بجميع الصيغ (JSON, Netscape) واستخراج الروابط المباشرة وتشخيص السيرفر">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0a0e17;
+            --bg-surface: #111827;
+            --bg-card: #182234;
+            --bg-card-hover: #1f2c42;
+            --bg-glass: rgba(24, 34, 52, 0.75);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-focus: #6366f1;
+            
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.35);
+            --primary-hover: #4f46e5;
+            
+            --accent-cyan: #06b6d4;
+            --accent-cyan-glow: rgba(6, 182, 212, 0.3);
+            
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.25);
+            --warning: #f59e0b;
+            --warning-glow: rgba(245, 158, 11, 0.25);
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.25);
+            
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --text-subtle: #6b7280;
+            
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --radius-full: 9999px;
+            
+            --font-arabic: 'Cairo', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-english: 'Inter', system-ui, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.1) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            font-family: var(--font-arabic);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 24px 20px 60px;
+        }
+
+        /* Glassmorphism Header */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 20px 28px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            margin-bottom: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .brand-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #ef4444, #8b5cf6);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .brand-icon svg {
+            width: 26px;
+            height: 26px;
+            fill: #fff;
+        }
+
+        .brand-text h1 {
+            font-size: 1.45rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 40%, #c7d2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .brand-text p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: var(--radius-full);
+            font-size: 0.88rem;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            transition: all 0.3s ease;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .status-badge.valid {
+            background: rgba(16, 185, 129, 0.12);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+        .status-badge.valid .status-dot { background: #34d399; }
+
+        .status-badge.expired, .status-badge.danger {
+            background: rgba(239, 68, 68, 0.12);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+        .status-badge.expired .status-dot, .status-badge.danger .status-dot { background: #f87171; }
+
+        .status-badge.warning, .status-badge.guest {
+            background: rgba(245, 158, 11, 0.12);
+            border-color: rgba(245, 158, 11, 0.3);
+            color: #fbbf24;
+        }
+        .status-badge.warning .status-dot, .status-badge.guest .status-dot { background: #fbbf24; }
+
+        /* Navigation Tabs */
+        .tabs-nav {
+            display: flex;
+            gap: 10px;
+            background: var(--bg-surface);
+            padding: 8px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--primary), #4338ca);
+            color: #ffffff;
+            box-shadow: 0 4px 16px var(--primary-glow);
+        }
+
+        /* Tab Content Panes */
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Grid Layouts */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Glass Cards */
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            transition: border-color 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.14);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .card-title svg {
+            width: 22px;
+            height: 22px;
+            fill: var(--primary);
+        }
+
+        /* Stats Cards */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .stat-label {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--text-main);
+            font-family: var(--font-english);
+        }
+
+        /* Format Detection Badge */
+        .format-detector {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: var(--radius-full);
+            font-size: 0.8rem;
+            font-weight: 700;
+            background: rgba(99, 102, 241, 0.12);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            margin-bottom: 12px;
+        }
+
+        /* Inputs & Textareas */
+        .textarea-box {
+            width: 100%;
+            height: 220px;
+            background: var(--bg-card);
+            border: 1.5px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            color: #f3f4f6;
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 0.88rem;
+            line-height: 1.5;
+            resize: vertical;
+            direction: ltr;
+            text-align: left;
+            transition: all 0.2s ease;
+        }
+
+        .textarea-box:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        .drop-zone {
+            margin-top: 14px;
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: var(--radius-md);
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(255, 255, 255, 0.015);
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .drop-zone svg {
+            width: 32px;
+            height: 32px;
+            fill: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .drop-zone p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 18px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 24px;
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #4338ca);
+            color: #ffffff;
+            box-shadow: 0 4px 16px var(--primary-glow);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #4f46e5, #3730a3);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #ffffff;
+            box-shadow: 0 4px 16px var(--success-glow);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #ef4444;
+            color: #ffffff;
+        }
+
+        /* Cookie Auth Keys Grid */
+        .auth-keys-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .key-badge {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+        }
+
+        .key-badge.found {
+            border-color: rgba(16, 185, 129, 0.3);
+            background: rgba(16, 185, 129, 0.08);
+            color: #6ee7b7;
+        }
+
+        .key-badge.missing {
+            border-color: rgba(239, 68, 68, 0.25);
+            background: rgba(239, 68, 68, 0.06);
+            color: #fca5a5;
+        }
+
+        /* Test Result Box */
+        .test-box {
+            margin-top: 18px;
+            padding: 16px;
+            border-radius: var(--radius-md);
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .test-box.success {
+            border-color: rgba(16, 185, 129, 0.35);
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        .test-box.error {
+            border-color: rgba(239, 68, 68, 0.35);
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        /* Video Extractor UI */
+        .extractor-form {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .input-url {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1.5px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 14px 20px;
+            color: #ffffff;
+            font-family: var(--font-english);
+            font-size: 1rem;
+            direction: ltr;
+        }
+
+        .input-url:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        .video-card {
+            display: flex;
+            gap: 20px;
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            padding: 18px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .video-card {
+                flex-direction: column;
+            }
+        }
+
+        .video-thumb {
+            width: 220px;
+            height: 124px;
+            border-radius: var(--radius-sm);
+            object-fit: cover;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .video-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .video-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            line-height: 1.4;
+        }
+
+        .video-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+        }
+
+        /* Streams Table */
+        .streams-category {
+            margin-bottom: 24px;
+        }
+
+        .category-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .streams-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .streams-table th, .streams-table td {
+            padding: 14px 16px;
+            text-align: right;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 0.9rem;
+        }
+
+        .streams-table th {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .streams-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .btn-table {
+            padding: 6px 14px;
+            font-size: 0.82rem;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+        }
+
+        /* Live Logs Console */
+        .console-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .console-box {
+            background: #070a11;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            height: 480px;
+            overflow-y: auto;
+            font-family: var(--font-mono);
+            font-size: 0.84rem;
+            line-height: 1.6;
+            direction: ltr;
+            text-align: left;
+            color: #d1d5db;
+        }
+
+        .log-line {
+            display: flex;
+            gap: 12px;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .log-time { color: #6b7280; flex-shrink: 0; }
+        .log-lvl { font-weight: 700; flex-shrink: 0; width: 65px; }
+        .log-lvl.INFO { color: #60a5fa; }
+        .log-lvl.WARNING { color: #fbbf24; }
+        .log-lvl.ERROR { color: #f87171; }
+        .log-lvl.DEBUG { color: #9ca3af; }
+        .log-msg { color: #f3f4f6; word-break: break-all; }
+
+        /* Guide Section */
+        .guide-box {
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 20px;
+        }
+
+        .guide-box h3 {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #c7d2fe;
+            margin-bottom: 12px;
+        }
+
+        .guide-box p, .guide-box li {
+            font-size: 0.95rem;
+            color: #d1d5db;
+            line-height: 1.8;
+        }
+
+        .guide-box ul, .guide-box ol {
+            padding-right: 24px;
+            margin: 12px 0;
+        }
+
+        .step-num {
+            display: inline-flex;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: #fff;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 800;
+            margin-left: 8px;
+        }
+
+        /* Toast Notifications */
+        #toastContainer {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            padding: 14px 22px;
+            border-radius: var(--radius-md);
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #ffffff;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .toast.success { background: #059669; }
+        .toast.error { background: #dc2626; }
+        .toast.info { background: #4f46e5; }
+
+        /* Loader */
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #ffffff;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Main Header -->
+        <header>
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                </div>
+                <div class="brand-text">
+                    <h1>YouTube API & Cookie Center</h1>
+                    <p>مركز إدارة وتحديث كوكيز يوتيوب الذكي واستخراج الروابط المباشرة</p>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <div id="headerStatusBadge" class="status-badge">
+                    <span class="status-dot"></span>
+                    <span id="headerStatusText">جاري التحقق...</span>
+                </div>
+                <button id="quickTestBtn" class="btn btn-primary" onclick="runLiveHealthTest()">
+                    <span id="quickTestIcon">⚡</span>
+                    <span>فحص الكوكيز الآن</span>
+                </button>
+                <a href="/docs" target="_blank" class="btn btn-secondary">
+                    <span>وثائق الـ API</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Stats Bar -->
+        <div class="stats-row">
+            <div class="stat-item">
+                <span class="stat-label">حالة جلسة الكوكيز</span>
+                <span id="statStatus" class="stat-value" style="font-size:1.15rem;">--</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">إجمالي الكوكيز المسجلة</span>
+                <span id="statCount" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">الأيام المتبقية حتى الانتهاء</span>
+                <span id="statDays" class="stat-value">--</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">محرك التحديات (Node.js)</span>
+                <span id="statNode" class="stat-value" style="font-size:1.15rem;">--</span>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="tabs-nav">
+            <button class="tab-btn active" onclick="switchTab('cookies')">
+                <span>🍪 إدارة وتحديث الكوكيز (Universal)</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('extractor')">
+                <span>🎬 فحص واستخراج الروابط المباشرة</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('logs')">
+                <span>⚡ سجلات التشخيص الحية (Live Logs)</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('guide')">
+                <span>🛡️ بدائل الدخول واستمرارية الحساب</span>
+            </button>
+        </div>
+
+        <!-- TAB 1: COOKIES MANAGEMENT -->
+        <div id="tab-cookies" class="tab-pane active">
+            <div class="grid-2">
+                <!-- Cookie Input Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                            <span>تحديث الكوكيز (يقبل JSON أو Netscape)</span>
+                        </div>
+                        <span id="formatBadge" class="format-detector">بانتظار الإدخال...</span>
+                    </div>
+
+                    <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 14px;">
+                        يمكنك نسخ الكوكيز مباشرة بصيغة <strong>JSON</strong> من إضافة <em>Cookie-Editor</em> أو بصيغة <strong>Netscape</strong> (ملف cookies.txt) أو إدخال نص الهيدر:
+                    </p>
+
+                    <textarea id="cookiesInput" class="textarea-box" placeholder="الصق هنا الكوكيز بأي صيغة:
+- إما مصفوفة JSON: [{&quot;domain&quot;: &quot;.youtube.com&quot;, ...}]
+- أو أسطر Netscape: .youtube.com TRUE / TRUE ...
+- أو نص الهيدر: Cookie: SID=...; LOGIN_INFO=..."></textarea>
+
+                    <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileUpload').click()">
+                        <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+                        <p>أو اسحب وأفلت ملف الكوكيز هنا (<strong>cookies.txt</strong> أو <strong>cookies.json</strong>)</p>
+                        <input type="file" id="fileUpload" style="display: none;" accept=".txt,.json" onchange="handleFileSelect(event)">
+                    </div>
+
+                    <div class="btn-group">
+                        <button id="saveCookiesBtn" class="btn btn-primary" onclick="saveCookies(false)">
+                            <span>💾 حفظ وتطبيق الكوكيز</span>
+                        </button>
+                        <button id="saveAndTestBtn" class="btn btn-success" onclick="saveCookies(true)">
+                            <span>🚀 حفظ واختبار فوري</span>
+                        </button>
+                        <button id="clearCookiesBtn" class="btn btn-danger" onclick="clearCookies()">
+                            <span>🗑️ مسح الكوكيز</span>
+                        </button>
+                    </div>
+
+                    <div id="testResultBox" class="test-box">
+                        <div id="testResultContent"></div>
+                    </div>
+                </div>
+
+                <!-- Cookie Health & Keys Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+                            <span>رادار فحص مفاتيح المصادقة (Auth Matrix)</span>
+                        </div>
+                        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="loadCookieStatus()">تحديث</button>
+                    </div>
+
+                    <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 12px;">
+                        يتأكد النظام من احتواء الكوكيز على مفاتيح تسجيل الدخول الحيوية لتفادي مشكلة <em>"Sign in to confirm you're not a bot"</em>:
+                    </p>
+
+                    <div id="authKeysContainer" class="auth-keys-grid">
+                        <!-- Filled dynamically -->
+                    </div>
+
+                    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-subtle);">
+                        <h4 style="font-size: 0.95rem; font-weight: 800; margin-bottom: 10px;">معلومات الملف الحالي</h4>
+                        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: var(--text-muted);">
+                            <div><strong>المسار:</strong> <code id="lblFilePath" style="color: #a5b4fc; direction: ltr; display: inline-block;">--</code></div>
+                            <div><strong>الحجم:</strong> <span id="lblFileSize">--</span></div>
+                            <div><strong>أقرب انتهاء:</strong> <span id="lblExpiry">--</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: DIRECT EXTRACTOR PLAYGROUND -->
+        <div id="tab-extractor" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>
+                        <span>مستخرج الروابط وتجربة الفيديو</span>
+                    </div>
+                </div>
+
+                <div class="extractor-form">
+                    <input type="text" id="extractUrlInput" class="input-url" placeholder="ضع رابط فيديو يوتيوب هنا (مثال: https://www.youtube.com/watch?v=...)" value="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
+                    <button id="extractBtn" class="btn btn-primary" onclick="extractVideo()">
+                        <span>استخراج الروابط المباشرة</span>
+                    </button>
+                </div>
+
+                <div id="extractorLoader" style="display: none; text-align: center; padding: 40px 0;">
+                    <div class="spinner" style="width: 36px; height: 36px; border-width: 3px;"></div>
+                    <p style="margin-top: 12px; color: var(--text-muted);">جاري الاتصال بيوتيوب واستخراج الروابط وحل التحديات البرمجية...</p>
+                </div>
+
+                <div id="extractionResults" style="display: none;">
+                    <!-- Video Details Card -->
+                    <div class="video-card">
+                        <img id="vThumb" class="video-thumb" src="" alt="Thumbnail">
+                        <div class="video-details">
+                            <h2 id="vTitle" class="video-title">--</h2>
+                            <div class="video-meta">
+                                <span>القناة: <strong id="vUploader">--</strong></span>
+                                <span>المدة: <strong id="vDuration">--</strong></span>
+                                <span>المشاهدات: <strong id="vViews">--</strong></span>
+                                <span>الاستراتيجية: <strong id="vStrategy" style="color: #34d399;">--</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Streams: Video with Audio -->
+                    <div class="streams-category">
+                        <h3 class="category-title" style="color: #60a5fa;">
+                            <span>🎬 فيديو مدمج مع الصوت (جاهز للتشغيل والتحميل المباشر)</span>
+                        </h3>
+                        <table class="streams-table">
+                            <thead>
+                                <tr>
+                                    <th>الجودة</th>
+                                    <th>الصيغة</th>
+                                    <th>الأبعاد</th>
+                                    <th>الحجم التقديري</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="videoWithAudioTbody"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Streams: Audio Only -->
+                    <div class="streams-category">
+                        <h3 class="category-title" style="color: #34d399;">
+                            <span>🎵 صوت فقط (Audio Streams)</span>
+                        </h3>
+                        <table class="streams-table">
+                            <thead>
+                                <tr>
+                                    <th>معدل البت</th>
+                                    <th>الصيغة</th>
+                                    <th>ترميز الصوت</th>
+                                    <th>الحجم</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audioOnlyTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: LIVE LOGS CONSOLE -->
+        <div id="tab-logs" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z"/></svg>
+                        <span>سجل العمليات والأخطاء الحية (Live Console)</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.82rem;" onclick="fetchLogs()">🔄 تحديث</button>
+                        <button class="btn btn-danger" style="padding: 6px 14px; font-size: 0.82rem;" onclick="clearLogs()">🗑️ مسح السجلات</button>
+                    </div>
+                </div>
+
+                <div class="console-header">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <label style="font-size: 0.85rem; color: var(--text-muted);">تصفية:</label>
+                        <select id="logFilter" onchange="renderLogs()" style="background: var(--bg-card); color: #fff; border: 1px solid var(--border-subtle); padding: 4px 10px; border-radius: var(--radius-sm); font-family: inherit;">
+                            <option value="ALL">الكل (All)</option>
+                            <option value="ERROR">أخطاء فقط (Errors)</option>
+                            <option value="WARNING">تحذيرات (Warnings)</option>
+                            <option value="INFO">معلومات (Info)</option>
+                        </select>
+                    </div>
+                    <span id="logCountLabel" style="font-size: 0.82rem; color: var(--text-muted);">0 سجل</span>
+                </div>
+
+                <div id="consoleBox" class="console-box">
+                    <div style="color: #9ca3af; text-align: center; padding: 20px;">جاري جلب السجلات...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: GOOGLE LOGIN & LONGEVITY GUIDE -->
+        <div id="tab-guide" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                        <span>دليل وبدائل تسجيل الدخول بحساب جوجل واستمرارية الكوكيز</span>
+                    </div>
+                </div>
+
+                <div class="guide-box">
+                    <h3>💡 هل يمكن تسجيل الدخول بحساب جوجل مباشرة في السيرفر؟</h3>
+                    <p>
+                        <strong>الإجابة الفنية الدقيقة:</strong><br>
+                        قامت جوجل ويوتيوب منذ عدة أعوام بإيقاف تسجيل الدخول التلقائي بكلمة المرور و OAuth لبرمجيات التحميل الخارجية لمكافحة الروبوتات وتفعيل التحقق بخطوتين (2FA) ونظام حماية <em>BotGuard / PoToken</em>.<br>
+                        لذلك، <strong>الطريقة المعتمدة رسمياً والأكثر استقراراً في yt-dlp ومطوري البوتات هي تمرير الكوكيز (Session Cookies).</strong>
+                    </p>
+                </div>
+
+                <div class="guide-box">
+                    <h3>🌟 كيف تجعل الكوكيز تظل صالحة لمدة 6 إلى 12 شهراً دون أن تنتهي؟</h3>
+                    <p>السبب الرئيسي لانتهاء الكوكيز سريعاً ليس الوقت، بل <strong>تسجيل الخروج أو استخدام نفس الحساب الشخصي يومياً</strong>. لضمان بقائها نشطة لشهور:</p>
+                    <ol>
+                        <li><span class="step-num">1</span> <strong>أنشئ حساب جوجل مخصص (Dedicated / Burner Account):</strong> لا تستخدم بريدك الشخصي الأساسي. أنشئ حساباً مجانياً خصيصاً للـ API.</li>
+                        <li><span class="step-num">2</span> <strong>افتح بروفايل جديد تماماً في المتصفح:</strong> (في Chrome اضغط على أيقونة صورتك ثم Add Profile).</li>
+                        <li><span class="step-num">3</span> <strong>سجّل الدخول إلى YouTube:</strong> وشغّل فيديو واحد للتأكد.</li>
+                        <li><span class="step-num">4</span> <strong>القاعدة الذهبية (ممنوع تسجيل الخروج):</strong> لا تضغط على "Sign Out" أبداً في هذا المتصفح! الضغط على Sign Out يلغي الـ Session على خوادم جوجل فوراً. ببساطة أغلق نافذة المتصفح دون خروج.</li>
+                        <li><span class="step-num">5</span> <strong>قم بتصدير الكوكيز عبر Cookie-Editor:</strong>
+                            <br>ثبّت إضافة <strong>Cookie-Editor</strong> مجاناً في Chrome أو Firefox.
+                            <br>افتح موقع يوتيوب، افتح الإضافة، واضغط على <strong>Export &rarr; Export as JSON</strong>.
+                        </li>
+                        <li><span class="step-num">6</span> <strong>الصقها هنا مباشرة في لوحة التحكم:</strong> سيتعرف عليها النظام كـ JSON ويقوم بتحويلها وحفظها وفحصها فوراً!</li>
+                    </ol>
+                </div>
+
+                <div class="guide-box">
+                    <h3>🛡️ ميزة الحماية الاحتياطية (Guest Mode Fallback)</h3>
+                    <p>
+                        تم تحديث السيرفر الآن بنظام ذكي متعدد المراحل: في حال انتهت الكوكيز مستقبلاً أو تم حظرها، لا يتعطل السيرفر، بل يقوم تلقائياً بالتحويل الفوري إلى وضع الزائر (Guest Mode) وحل التشفير عبر Node.js لاستخراج الفيديوهات العامة دون انقطاع الخدمة للمستخدمين!
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer"></div>
+
+    <script>
+        // State
+        let allLogs = [];
+        let autoLogTimer = null;
+
+        // On Load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCookieStatus();
+            setupDropZone();
+            setupInputDetection();
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            
+            // Find clicked button
+            const btns = document.querySelectorAll('.tab-btn');
+            if (tabId === 'cookies') btns[0].classList.add('active');
+            if (tabId === 'extractor') btns[1].classList.add('active');
+            if (tabId === 'logs') { btns[2].classList.add('active'); fetchLogs(); startAutoLogs(); }
+            else { stopAutoLogs(); }
+            if (tabId === 'guide') btns[3].classList.add('active');
+
+            const pane = document.getElementById(`tab-${tabId}`);
+            if (pane) pane.classList.add('active');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // Live Format Detection in textarea
+        function setupInputDetection() {
+            const input = document.getElementById('cookiesInput');
+            const badge = document.getElementById('formatBadge');
+
+            input.addEventListener('input', () => {
+                const text = input.value.trim();
+                if (!text) {
+                    badge.textContent = 'بانتظار الإدخال...';
+                    badge.style.color = '#a5b4fc';
+                    return;
+                }
+
+                if (text.startsWith('[') || text.startsWith('{')) {
+                    badge.textContent = '✓ صيغة: JSON (Cookie-Editor / DevTools)';
+                    badge.style.color = '#34d399';
+                } else if (text.includes('# Netscape') || text.includes('\t') || text.includes('.youtube.com')) {
+                    badge.textContent = '✓ صيغة: Netscape (cookies.txt)';
+                    badge.style.color = '#38bdf8';
+                } else if (text.toLowerCase().includes('cookie:') || (text.includes('=') && text.includes(';'))) {
+                    badge.textContent = '✓ صيغة: HTTP Header (Key-Value)';
+                    badge.style.color = '#fbbf24';
+                } else {
+                    badge.textContent = 'صيغة غير محددة (سيتم تحليلها عند الحفظ)';
+                    badge.style.color = '#fca5a5';
+                }
+            });
+        }
+
+        // Drop Zone Handler
+        function setupDropZone() {
+            const zone = document.getElementById('dropZone');
+            ['dragenter', 'dragover'].forEach(e => {
+                zone.addEventListener(e, (evt) => {
+                    evt.preventDefault();
+                    zone.classList.add('dragover');
+                });
+            });
+            ['dragleave', 'drop'].forEach(e => {
+                zone.addEventListener(e, (evt) => {
+                    evt.preventDefault();
+                    zone.classList.remove('dragover');
+                });
+            });
+            zone.addEventListener('drop', (evt) => {
+                const files = evt.dataTransfer.files;
+                if (files.length > 0) {
+                    readFile(files[0]);
+                }
+            });
+        }
+
+        function handleFileSelect(evt) {
+            const file = evt.target.files[0];
+            if (file) readFile(file);
+        }
+
+        function readFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const input = document.getElementById('cookiesInput');
+                input.value = e.target.result;
+                input.dispatchEvent(new Event('input'));
+                showToast(`تم تحميل ملف "${file.name}" بنجاح!`, 'success');
+            };
+            reader.readAsText(file);
+        }
+
+        // Load Cookie Status
+        async function loadCookieStatus() {
+            try {
+                const res = await fetch('/api/cookies/status');
+                const data = await res.json();
+
+                // Update Header status
+                const badge = document.getElementById('headerStatusBadge');
+                const badgeText = document.getElementById('headerStatusText');
+                badge.className = 'status-badge';
+
+                if (data.status === 'valid') {
+                    badge.classList.add('valid');
+                    badgeText.textContent = 'الكوكيز صالحة ونشطة';
+                    document.getElementById('statStatus').textContent = 'نشطة وصالحة';
+                    document.getElementById('statStatus').style.color = '#34d399';
+                } else if (data.status === 'expired') {
+                    badge.classList.add('expired');
+                    badgeText.textContent = 'الكوكيز منتهية الصلاحية';
+                    document.getElementById('statStatus').textContent = 'منتهية الصلاحية';
+                    document.getElementById('statStatus').style.color = '#f87171';
+                } else if (data.status === 'guest_only') {
+                    badge.classList.add('warning');
+                    badgeText.textContent = 'وضع الزائر (بدون تسجيل)';
+                    document.getElementById('statStatus').textContent = 'وضع الزائر';
+                    document.getElementById('statStatus').style.color = '#fbbf24';
+                } else {
+                    badge.classList.add('expired');
+                    badgeText.textContent = 'لا توجد كوكيز';
+                    document.getElementById('statStatus').textContent = 'غير متوفرة';
+                    document.getElementById('statStatus').style.color = '#9ca3af';
+                }
+
+                // Update Stats
+                document.getElementById('statCount').textContent = data.total_cookies || 0;
+                document.getElementById('statDays').textContent = data.days_until_expiry ? `${data.days_until_expiry} يوم` : '--';
+                document.getElementById('lblFilePath').textContent = data.file_path || 'غير موجود';
+                document.getElementById('lblFileSize').textContent = data.file_size_bytes ? `${data.file_size_bytes} بايت` : '0 بايت';
+                document.getElementById('lblExpiry').textContent = data.earliest_expiry_readable || '--';
+
+                // Check Node
+                const debugRes = await fetch('/api/debug');
+                const debugData = await debugRes.json();
+                document.getElementById('statNode').textContent = debugData.node_installed ? 'مفعل (نشط)' : 'غير مثبت';
+                document.getElementById('statNode').style.color = debugData.node_installed ? '#34d399' : '#f87171';
+
+                // Render Auth Keys
+                renderAuthKeys(data.auth_cookies_found || [], data.missing_critical_cookies || []);
+            } catch (err) {
+                console.error('Failed to load cookies status:', err);
+            }
+        }
+
+        function renderAuthKeys(foundKeys, missingKeys) {
+            const container = document.getElementById('authKeysContainer');
+            container.innerHTML = '';
+
+            const allKeys = [
+                'LOGIN_INFO',
+                '__Secure-3PSID',
+                '__Secure-1PSID',
+                '__Secure-3PSIDTS',
+                '__Secure-1PSIDTS',
+                'SID',
+                'HSID',
+                'SSID',
+                'SAPISID',
+                'APISID'
+            ];
+
+            allKeys.forEach(k => {
+                const isFound = foundKeys.includes(k);
+                const item = document.createElement('div');
+                item.className = `key-badge ${isFound ? 'found' : 'missing'}`;
+                item.innerHTML = `
+                    <span>${k}</span>
+                    <span>${isFound ? '✓ متوفر' : '✗ مفقود'}</span>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // Save Cookies
+        async function saveCookies(testImmediately = false) {
+            const input = document.getElementById('cookiesInput');
+            const text = input.value.trim();
+            if (!text) {
+                showToast('يرجى لصق الكوكيز أولاً في الصندوق!', 'error');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveCookiesBtn');
+            const saveTestBtn = document.getElementById('saveAndTestBtn');
+            saveBtn.disabled = true;
+            saveTestBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner"></span> <span>جاري المعالجة...</span>';
+
+            try {
+                const res = await fetch('/api/cookies/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cookies_text: text,
+                        test_immediately: testImmediately
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.detail || data.message || 'فشل حفظ الكوكيز');
+                }
+
+                showToast(`تم حفظ وتطبيق ${data.cookies_count} كوكيز بنجاح! (الصيغة: ${data.detected_format})`, 'success');
+                loadCookieStatus();
+
+                if (testImmediately && data.test_result) {
+                    showTestResult(data.test_result);
+                }
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveTestBtn.disabled = false;
+                saveBtn.innerHTML = '<span>💾 حفظ وتطبيق الكوكيز</span>';
+            }
+        }
+
+        // Live Health Test
+        async function runLiveHealthTest() {
+            const btn = document.getElementById('quickTestBtn');
+            const icon = document.getElementById('quickTestIcon');
+            btn.disabled = true;
+            icon.innerHTML = '<span class="spinner"></span>';
+
+            try {
+                showToast('جاري فحص الكوكيز بطلب حي لليوتيوب...', 'info');
+                const res = await fetch('/api/cookies/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+
+                const data = await res.json();
+                showTestResult(data);
+                if (data.success) {
+                    showToast(data.message, 'success');
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (err) {
+                showToast(`خطأ أثناء الفحص: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                icon.textContent = '⚡';
+                loadCookieStatus();
+            }
+        }
+
+        function showTestResult(res) {
+            const box = document.getElementById('testResultBox');
+            const content = document.getElementById('testResultContent');
+            box.style.display = 'block';
+            box.className = `test-box ${res.success ? 'success' : 'error'}`;
+
+            if (res.success) {
+                content.innerHTML = `
+                    <div style="font-weight: 800; color: #34d399; margin-bottom: 6px; font-size: 1rem;">
+                        ✓ نتيجة الفحص الحي: الكوكيز تعمل بكفاءة تامة!
+                    </div>
+                    <div style="font-size: 0.88rem; color: #d1d5db; line-height: 1.6;">
+                        <div><strong>الفيديو التجريبي:</strong> ${res.video_title}</div>
+                        <div><strong>زمن الاستجابة:</strong> ${res.elapsed_seconds} ثانية</div>
+                        <div><strong>الجودات المتاحة:</strong> ${res.total_formats} جودة</div>
+                        <div><strong>الاستراتيجية:</strong> <code style="color: #6ee7b7;">${res.strategy || 'cookies'}</code></div>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div style="font-weight: 800; color: #f87171; margin-bottom: 6px; font-size: 1rem;">
+                        ✗ فشل الفحص الحي: يوتيوب يرفض الجلسة
+                    </div>
+                    <div style="font-size: 0.88rem; color: #d1d5db; line-height: 1.6;">
+                        <div><strong>رسالة الخطأ:</strong> ${res.error || res.message}</div>
+                        <div style="margin-top: 6px; color: #fbbf24;">
+                            <em>نصيحة: تأكد من نسخ كوكيز جديدة باتباع خطوات تبويب "بدائل الدخول واستمرارية الحساب".</em>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Clear Cookies
+        async function clearCookies() {
+            if (!confirm('هل أنت متأكد من رغبتك في تفريغ ملف الكوكيز والعودة لوضع الزائر؟')) return;
+            try {
+                const res = await fetch('/api/cookies', { method: 'DELETE' });
+                if (res.ok) {
+                    showToast('تم تفريغ الكوكيز بنجاح والتحويل لوضع الزائر', 'info');
+                    document.getElementById('cookiesInput').value = '';
+                    loadCookieStatus();
+                }
+            } catch (err) {
+                showToast(`فشل مسح الكوكيز: ${err.message}`, 'error');
+            }
+        }
+
+        // Video Extractor
+        async function extractVideo() {
+            const urlInput = document.getElementById('extractUrlInput');
+            const url = urlInput.value.trim();
+            if (!url) {
+                showToast('يرجى وضع رابط الفيديو أولاً', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('extractBtn');
+            const loader = document.getElementById('extractorLoader');
+            const results = document.getElementById('extractionResults');
+
+            btn.disabled = true;
+            loader.style.display = 'block';
+            results.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/extract', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.detail || 'فشل استخراج الروابط');
+                }
+
+                // Render video card
+                const info = data.video_info;
+                document.getElementById('vThumb').src = info.thumbnail || '';
+                document.getElementById('vTitle').textContent = info.title || 'بدون عنوان';
+                document.getElementById('vUploader').textContent = info.uploader || '--';
+                document.getElementById('vDuration').textContent = info.duration_readable || '--';
+                document.getElementById('vViews').textContent = info.view_count ? Number(info.view_count).toLocaleString() : '--';
+                document.getElementById('vStrategy').textContent = data.strategy_used || 'cookies';
+
+                // Render Video with Audio
+                const vTbody = document.getElementById('videoWithAudioTbody');
+                vTbody.innerHTML = '';
+                const vStreams = (data.streams && data.streams.video_with_audio) || [];
+
+                if (vStreams.length === 0) {
+                    vTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: #9ca3af;">لا توجد روابط فيديو مدمج بصوت مباشر. تتوفر جودات فيديو فقط وصوت منفصلين أدناه.</td></tr>';
+                } else {
+                    vStreams.forEach(s => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><strong style="color: #60a5fa;">${s.resolution || s.quality_note || 'Auto'}</strong></td>
+                            <td>${s.ext || 'mp4'}</td>
+                            <td>${s.width && s.height ? `${s.width}x${s.height}` : '--'}</td>
+                            <td>${s.filesize_readable || '--'}</td>
+                            <td class="action-btns">
+                                <a href="${s.url}" target="_blank" class="btn-table btn-primary">تشغيل مباشر</a>
+                                <button class="btn-table btn-secondary" onclick="copyLink('${s.url}')">نسخ الرابط</button>
+                            </td>
+                        `;
+                        vTbody.appendChild(tr);
+                    });
+                }
+
+                // Render Audio Only
+                const aTbody = document.getElementById('audioOnlyTbody');
+                aTbody.innerHTML = '';
+                const aStreams = (data.streams && data.streams.audio_only) || [];
+
+                if (aStreams.length === 0) {
+                    aTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: #9ca3af;">لا توجد روابط صوتية مستقلة.</td></tr>';
+                } else {
+                    aStreams.forEach(s => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><strong style="color: #34d399;">${s.abr_kbps ? `${Math.round(s.abr_kbps)} kbps` : 'Audio'}</strong></td>
+                            <td>${s.ext || 'm4a'}</td>
+                            <td>${s.acodec || 'audio'}</td>
+                            <td>${s.filesize_readable || '--'}</td>
+                            <td class="action-btns">
+                                <a href="${s.url}" target="_blank" class="btn-table btn-success">استماع / تحميل</a>
+                                <button class="btn-table btn-secondary" onclick="copyLink('${s.url}')">نسخ الرابط</button>
+                            </td>
+                        `;
+                        aTbody.appendChild(tr);
+                    });
+                }
+
+                results.style.display = 'block';
+                showToast('تم استخراج الروابط المباشرة بنجاح!', 'success');
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                loader.style.display = 'none';
+            }
+        }
+
+        function copyLink(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                showToast('تم نسخ الرابط المباشر إلى الحافظة!', 'success');
+            }).catch(() => {
+                showToast('فشل النسخ تلقائياً', 'error');
+            });
+        }
+
+        // Logs
+        async function fetchLogs() {
+            try {
+                const res = await fetch('/api/logs');
+                const data = await res.json();
+                allLogs = data.logs || [];
+                renderLogs();
+            } catch (err) {
+                console.error('Failed to fetch logs:', err);
+            }
+        }
+
+        function renderLogs() {
+            const filter = document.getElementById('logFilter').value;
+            const box = document.getElementById('consoleBox');
+            const countLabel = document.getElementById('logCountLabel');
+
+            let filtered = allLogs;
+            if (filter !== 'ALL') {
+                filtered = allLogs.filter(l => l.level === filter);
+            }
+
+            countLabel.textContent = `${filtered.length} سجل معروض`;
+
+            if (filtered.length === 0) {
+                box.innerHTML = '<div style="color: #6b7280; text-align: center; padding: 20px;">لا توجد سجلات مطابقة.</div>';
+                return;
+            }
+
+            box.innerHTML = filtered.map(l => `
+                <div class="log-line">
+                    <span class="log-time">[${l.timestamp}]</span>
+                    <span class="log-lvl ${l.level}">[${l.level}]</span>
+                    <span class="log-msg">${escapeHtml(l.message)}</span>
+                </div>
+            `).join('');
+
+            // Scroll to bottom
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function clearLogs() {
+            try {
+                await fetch('/api/logs', { method: 'DELETE' });
+                allLogs = [];
+                renderLogs();
+                showToast('تم مسح سجلات الذاكرة', 'info');
+            } catch (err) {
+                showToast('فشل مسح السجلات', 'error');
+            }
+        }
+
+        function startAutoLogs() {
+            stopAutoLogs();
+            autoLogTimer = setInterval(fetchLogs, 4000);
+        }
+
+        function stopAutoLogs() {
+            if (autoLogTimer) clearInterval(autoLogTimer);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>
