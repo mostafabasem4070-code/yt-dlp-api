@@ -761,8 +761,266 @@
             animation: spin 0.8s linear infinite;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        /* Monitoring Center Styles */
+        .monitor-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+            background: linear-gradient(135deg, rgba(24, 34, 52, 0.95) 0%, rgba(17, 24, 39, 0.98) 100%);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 24px 28px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        }
+
+        .banner-info {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1;
+            min-width: 280px;
+        }
+
+        .banner-title-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-indicator-lg {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .status-indicator-lg.healthy {
+            background: rgba(16, 185, 129, 0.15);
+            border: 2px solid #10b981;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+            color: #10b981;
+        }
+
+        .status-indicator-lg.warning {
+            background: rgba(245, 158, 11, 0.15);
+            border: 2px solid #f59e0b;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.35);
+            color: #f59e0b;
+        }
+
+        .status-indicator-lg.critical {
+            background: rgba(239, 68, 68, 0.15);
+            border: 2px solid #ef4444;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.35);
+            color: #ef4444;
+        }
+
+        .status-beacon {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulseBeacon 2s infinite;
+        }
+
+        @keyframes pulseBeacon {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.25); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        .banner-meta {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+            font-size: 0.84rem;
+            color: var(--text-muted);
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .banner-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .monitor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .monitor-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .comp-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.25s ease;
+            position: relative;
+        }
+
+        .comp-card.healthy {
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .comp-card.healthy:hover {
+            border-color: rgba(16, 185, 129, 0.6);
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.15);
+        }
+
+        .comp-card.warning {
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+        .comp-card.warning:hover {
+            border-color: rgba(245, 158, 11, 0.6);
+            box-shadow: 0 10px 30px rgba(245, 158, 11, 0.15);
+        }
+
+        .comp-card.critical {
+            border-color: rgba(239, 68, 68, 0.35);
+        }
+        .comp-card.critical:hover {
+            border-color: rgba(239, 68, 68, 0.7);
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.2);
+        }
+
+        .comp-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .comp-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .comp-icon-box {
+            width: 42px;
+            height: 42px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+
+        .comp-title h3 {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text-main);
+            line-height: 1.3;
+        }
+
+        .comp-sub {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-family: var(--font-english);
+            display: block;
+        }
+
+        .badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            font-size: 0.78rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .badge-pill.healthy {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-pill.warning {
+            background: rgba(245, 158, 11, 0.12);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .badge-pill.critical {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .comp-body {
+            margin-bottom: 14px;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 7px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            font-size: 0.86rem;
+        }
+
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+
+        .m-label {
+            color: var(--text-muted);
+        }
+
+        .m-val {
+            color: #f3f4f6;
+            font-weight: 600;
+        }
+
+        .font-en {
+            font-family: var(--font-english);
+        }
+
+        .font-code {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            direction: ltr;
+        }
+
+        .comp-msg {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            font-size: 0.82rem;
+            color: #d1d5db;
+            line-height: 1.5;
+            margin-bottom: 14px;
+            border-right: 3px solid var(--primary);
+        }
+
+        .comp-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-subtle);
+            margin-top: auto;
         }
     </style>
 </head>
@@ -799,26 +1057,33 @@
         <!-- Stats Bar -->
         <div class="stats-row">
             <div class="stat-item">
-                <span class="stat-label">حالة جلسة الكوكيز</span>
+                <span class="stat-label">الحالة العامة للنظام</span>
+                <span id="statOverall" class="stat-value" style="font-size:1.15rem;">--</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">جلسة الكوكيز الحالية</span>
                 <span id="statStatus" class="stat-value" style="font-size:1.15rem;">--</span>
             </div>
             <div class="stat-item">
-                <span class="stat-label">إجمالي الكوكيز المسجلة</span>
-                <span id="statCount" class="stat-value">0</span>
+                <span class="stat-label">إصدار yt-dlp (PyPI)</span>
+                <span id="statYtdlp" class="stat-value" style="font-size:1.15rem;">--</span>
             </div>
             <div class="stat-item">
-                <span class="stat-label">الأيام المتبقية حتى الانتهاء</span>
-                <span id="statDays" class="stat-value">--</span>
+                <span class="stat-label">محركات التحديات (JS)</span>
+                <span id="statJSEngine" class="stat-value" style="font-size:1.15rem;">--</span>
             </div>
             <div class="stat-item">
-                <span class="stat-label">محرك التحديات (Node.js)</span>
-                <span id="statNode" class="stat-value" style="font-size:1.15rem;">--</span>
+                <span class="stat-label">بينغ شبكة يوتيوب</span>
+                <span id="statLatency" class="stat-value" style="font-size:1.15rem;">--</span>
             </div>
         </div>
 
         <!-- Navigation Tabs -->
         <div class="tabs-nav">
-            <button class="tab-btn active" onclick="switchTab('cookies')">
+            <button class="tab-btn active" onclick="switchTab('monitor')">
+                <span>🖥️ مركز مراقبة المكونات (Monitoring Center)</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('cookies')">
                 <span>🍪 إدارة وتحديث الكوكيز (Universal)</span>
             </button>
             <button class="tab-btn" onclick="switchTab('extractor')">
@@ -832,8 +1097,276 @@
             </button>
         </div>
 
+        <!-- TAB 0: SYSTEM MONITORING CENTER -->
+        <div id="tab-monitor" class="tab-pane active">
+            <!-- Overall Health Banner -->
+            <div class="monitor-banner card">
+                <div class="banner-info">
+                    <div class="banner-title-row">
+                        <div class="status-indicator-lg healthy" id="overallIndicator">
+                            <span class="status-beacon"></span>
+                        </div>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <h2 id="overallStatusHeading" style="font-size: 1.35rem; font-weight: 800;">جاري فحص حالة النظام...</h2>
+                                <span id="overallBadgeText" class="badge-pill healthy">--</span>
+                            </div>
+                            <p id="overallStatusMsg" style="font-size: 0.9rem; color: var(--text-muted); margin-top: 4px;">يتم الآن فحص اتصال خوادم يوتيوب ومحركات الجافاسكريبت والكوكيز...</p>
+                        </div>
+                    </div>
+                    <div class="banner-meta">
+                        <span>🕒 آخر فحص: <strong id="monTimestamp" style="color: #c7d2fe;">--</strong></span>
+                        <span>🐍 بيئة بايثون: <code id="monPythonVer" style="color: #a5b4fc;">--</code></span>
+                        <span>💻 المنصة: <code id="monPlatform" style="color: #67e8f9;">--</code></span>
+                        <span>🆔 معرّف العملية (PID): <code id="monPID" style="color: #fde047;">--</code></span>
+                    </div>
+                </div>
+                <div class="banner-actions">
+                    <button id="fullProbeBtn" class="btn btn-primary" onclick="runSystemProbe()">
+                        <span id="fullProbeIcon">⚡</span>
+                        <span>فحص شامل لجميع المكونات</span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="fetchMonitoringHealth(false)">
+                        <span>🔄 تحديث الحالة</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Probe Results Box (Shows up when user clicks full probe) -->
+            <div id="probeResultBox" class="test-box" style="margin-bottom: 24px;">
+                <div id="probeResultContent"></div>
+            </div>
+
+            <!-- 6 Component Cards Grid -->
+            <div class="monitor-grid">
+                <!-- 1. Cookies Session Card -->
+                <div id="cardCookies" class="comp-card card">
+                    <div class="comp-header">
+                        <div class="comp-title">
+                            <div class="comp-icon-box" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">🍪</div>
+                            <div>
+                                <h3>جلسة كوكيز يوتيوب</h3>
+                                <span class="comp-sub">YouTube Cookies Session</span>
+                            </div>
+                        </div>
+                        <span id="compBadgeCookies" class="badge-pill">--</span>
+                    </div>
+                    <div class="comp-body">
+                        <div class="metric-row">
+                            <span class="m-label">حالة الجلسة:</span>
+                            <span id="monCookieStatus" class="m-val">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">إجمالي الكوكيز:</span>
+                            <span id="monCookieCount" class="m-val font-en">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">أيام الصلاحية المتبقية:</span>
+                            <span id="monCookieDays" class="m-val font-en">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">مفاتيح تسجيل الدخول:</span>
+                            <span id="monCookieAuthKeys" class="m-val font-en">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">حجم الملف:</span>
+                            <span id="monCookieSize" class="m-val font-en">--</span>
+                        </div>
+                    </div>
+                    <div id="monCookieMsg" class="comp-msg">--</div>
+                    <div class="comp-footer">
+                        <button class="btn-table btn-secondary" onclick="switchTab('cookies')">⚙️ ضبط الكوكيز</button>
+                        <button class="btn-table btn-primary" onclick="runLiveHealthTest()">⚡ اختبار الجلسة</button>
+                    </div>
+                </div>
+
+                <!-- 2. Deno JS Engine Card -->
+                <div id="cardDeno" class="comp-card card">
+                    <div class="comp-header">
+                        <div class="comp-title">
+                            <div class="comp-icon-box" style="background: rgba(6, 182, 212, 0.15); color: #22d3ee;">🦕</div>
+                            <div>
+                                <h3>محرك Deno للتحديات</h3>
+                                <span class="comp-sub">Deno JS Challenge Solver</span>
+                            </div>
+                        </div>
+                        <span id="compBadgeDeno" class="badge-pill">--</span>
+                    </div>
+                    <div class="comp-body">
+                        <div class="metric-row">
+                            <span class="m-label">الحالة في البيئة:</span>
+                            <span id="monDenoStatus" class="m-val">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">إصدار Deno:</span>
+                            <span id="monDenoVersion" class="m-val font-en">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">مسار الملف التنفيذي:</span>
+                            <span id="monDenoPath" class="m-val font-en font-code" style="max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">الدور والوظيفة:</span>
+                            <span class="m-val" style="color: #67e8f9;">حل n-challenge بدون قيود</span>
+                        </div>
+                    </div>
+                    <div id="monDenoMsg" class="comp-msg">--</div>
+                    <div class="comp-footer">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">الأفضل رسمياً لـ yt-dlp</span>
+                    </div>
+                </div>
+
+                <!-- 3. Node.js Engine Card -->
+                <div id="cardNode" class="comp-card card">
+                    <div class="comp-header">
+                        <div class="comp-title">
+                            <div class="comp-icon-box" style="background: rgba(34, 197, 94, 0.15); color: #4ade80;">🟩</div>
+                            <div>
+                                <h3>محرك Node.js</h3>
+                                <span class="comp-sub">Node.js Runtime</span>
+                            </div>
+                        </div>
+                        <span id="compBadgeNode" class="badge-pill">--</span>
+                    </div>
+                    <div class="comp-body">
+                        <div class="metric-row">
+                            <span class="m-label">الحالة في البيئة:</span>
+                            <span id="monNodeStatus" class="m-val">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">إصدار Node.js:</span>
+                            <span id="monNodeVersion" class="m-val font-en">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">مسار الملف التنفيذي:</span>
+                            <span id="monNodePath" class="m-val font-en font-code" style="max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">دعم --permission:</span>
+                            <span id="monNodePerm" class="m-val">--</span>
+                        </div>
+                    </div>
+                    <div id="monNodeMsg" class="comp-msg">--</div>
+                    <div class="comp-footer">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">محرك بديل ومساند لـ Deno</span>
+                    </div>
+                </div>
+
+                <!-- 4. yt-dlp Core & Auto-Updater Card -->
+                <div id="cardYtdlp" class="comp-card card">
+                    <div class="comp-header">
+                        <div class="comp-title">
+                            <div class="comp-icon-box" style="background: rgba(99, 102, 241, 0.15); color: #818cf8;">📥</div>
+                            <div>
+                                <h3>نواة مكتبة yt-dlp</h3>
+                                <span class="comp-sub">Extractor Core & PyPI Auto-Updater</span>
+                            </div>
+                        </div>
+                        <span id="compBadgeYtdlp" class="badge-pill">--</span>
+                    </div>
+                    <div class="comp-body">
+                        <div class="metric-row">
+                            <span class="m-label">الإصدار المثبت:</span>
+                            <span id="monYtdlpCurr" class="m-val font-en" style="color: #818cf8;">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">أحدث إصدار على PyPI:</span>
+                            <span id="monYtdlpLatest" class="m-val font-en" style="color: #34d399;">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">التحديث الدوري الذكي:</span>
+                            <span class="m-val" style="color: #a5b4fc;">تلقائي كل 12 ساعة ⏰</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">حالة التوافق:</span>
+                            <span id="monYtdlpMatch" class="m-val">--</span>
+                        </div>
+                    </div>
+                    <div id="monYtdlpMsg" class="comp-msg">--</div>
+                    <div class="comp-footer">
+                        <button id="upgradeYtdlpBtn" class="btn-table btn-primary" onclick="triggerYtdlpUpdate()">
+                            <span id="upgradeYtdlpIcon">🚀</span>
+                            <span>تحديث فوري لـ yt-dlp</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 5. FFmpeg Media Core Card -->
+                <div id="cardFfmpeg" class="comp-card card">
+                    <div class="comp-header">
+                        <div class="comp-title">
+                            <div class="comp-icon-box" style="background: rgba(168, 85, 247, 0.15); color: #c084fc;">🎬</div>
+                            <div>
+                                <h3>محرك الوسائط FFmpeg</h3>
+                                <span class="comp-sub">Media Processor & Merger</span>
+                            </div>
+                        </div>
+                        <span id="compBadgeFfmpeg" class="badge-pill">--</span>
+                    </div>
+                    <div class="comp-body">
+                        <div class="metric-row">
+                            <span class="m-label">الحالة في البيئة:</span>
+                            <span id="monFfmpegStatus" class="m-val">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">إصدار FFmpeg:</span>
+                            <span id="monFfmpegVersion" class="m-val font-en" style="max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">مسار الملف التنفيذي:</span>
+                            <span id="monFfmpegPath" class="m-val font-en font-code" style="max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">وظيفة المعالجة:</span>
+                            <span class="m-val" style="color: #c084fc;">دمج الصوت بالصورة وتجهيز الملفات</span>
+                        </div>
+                    </div>
+                    <div id="monFfmpegMsg" class="comp-msg">--</div>
+                    <div class="comp-footer">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">مثبت عبر Dockerfile في السيرفر</span>
+                    </div>
+                </div>
+
+                <!-- 6. YouTube Network Connectivity Card -->
+                <div id="cardNetwork" class="comp-card card">
+                    <div class="comp-header">
+                        <div class="comp-title">
+                            <div class="comp-icon-box" style="background: rgba(239, 68, 68, 0.15); color: #f87171;">🌐</div>
+                            <div>
+                                <h3>الاتصال بشبكة يوتيوب</h3>
+                                <span class="comp-sub">YouTube Network & Ping</span>
+                            </div>
+                        </div>
+                        <span id="compBadgeNetwork" class="badge-pill">--</span>
+                    </div>
+                    <div class="comp-body">
+                        <div class="metric-row">
+                            <span class="m-label">حالة الاتصال المباشر:</span>
+                            <span id="monNetStatus" class="m-val">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">زمن الاستجابة (Latency):</span>
+                            <span id="monNetLatency" class="m-val font-en" style="color: #34d399; font-weight: 800;">-- ms</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">رمز الاستجابة (HTTP):</span>
+                            <span id="monNetCode" class="m-val font-en">--</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">اكتشاف حظر الـ IP:</span>
+                            <span id="monNetBlock" class="m-val" style="color: #34d399;">غير محظور (طبيعي)</span>
+                        </div>
+                    </div>
+                    <div id="monNetMsg" class="comp-msg">--</div>
+                    <div class="comp-footer">
+                        <button class="btn-table btn-secondary" onclick="checkNetworkPingOnly()">🔄 قياس زمن البينغ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- TAB 1: COOKIES MANAGEMENT -->
-        <div id="tab-cookies" class="tab-pane active">
+        <div id="tab-cookies" class="tab-pane">
             <div class="grid-2">
                 <!-- Cookie Input Card -->
                 <div class="card">
@@ -1071,28 +1604,324 @@
         // State
         let allLogs = [];
         let autoLogTimer = null;
+        let autoMonitorTimer = null;
 
         // On Load
         document.addEventListener('DOMContentLoaded', () => {
+            fetchMonitoringHealth(true);
             loadCookieStatus();
             setupDropZone();
             setupInputDetection();
+            startAutoMonitor();
         });
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
             
-            // Find clicked button
-            const btns = document.querySelectorAll('.tab-btn');
-            if (tabId === 'cookies') btns[0].classList.add('active');
-            if (tabId === 'extractor') btns[1].classList.add('active');
-            if (tabId === 'logs') { btns[2].classList.add('active'); fetchLogs(); startAutoLogs(); }
-            else { stopAutoLogs(); }
-            if (tabId === 'guide') btns[3].classList.add('active');
+            // Highlight button by matching onclick attribute
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                const attr = btn.getAttribute('onclick') || '';
+                if (attr.includes(`'${tabId}'`)) {
+                    btn.classList.add('active');
+                }
+            });
+
+            if (tabId === 'monitor') {
+                fetchMonitoringHealth(true);
+                startAutoMonitor();
+            } else {
+                stopAutoMonitor();
+            }
+
+            if (tabId === 'logs') {
+                fetchLogs();
+                startAutoLogs();
+            } else {
+                stopAutoLogs();
+            }
 
             const pane = document.getElementById(`tab-${tabId}`);
             if (pane) pane.classList.add('active');
+        }
+
+        function startAutoMonitor() {
+            stopAutoMonitor();
+            autoMonitorTimer = setInterval(() => fetchMonitoringHealth(true), 15000);
+        }
+
+        function stopAutoMonitor() {
+            if (autoMonitorTimer) clearInterval(autoMonitorTimer);
+        }
+
+        // Monitoring Center Health Fetcher
+        async function fetchMonitoringHealth(silent = false) {
+            try {
+                const res = await fetch('/api/monitor/health');
+                const data = await res.json();
+
+                // 1. Overall Status Banner
+                const ind = document.getElementById('overallIndicator');
+                const heading = document.getElementById('overallStatusHeading');
+                const badge = document.getElementById('overallBadgeText');
+                const msg = document.getElementById('overallStatusMsg');
+
+                ind.className = `status-indicator-lg ${data.overall_status}`;
+                badge.className = `badge-pill ${data.overall_status}`;
+                badge.textContent = data.overall_badge;
+
+                if (data.overall_status === 'healthy') {
+                    heading.textContent = 'جميع مكونات النظام تعمل بكفاءة تامة 100%';
+                    heading.style.color = '#34d399';
+                    document.getElementById('statOverall').textContent = 'سليم 🟢 100%';
+                    document.getElementById('statOverall').style.color = '#34d399';
+                } else if (data.overall_status === 'warning') {
+                    heading.textContent = 'النظام يعمل مع وجود تنبيهات ثانوية';
+                    heading.style.color = '#fbbf24';
+                    document.getElementById('statOverall').textContent = 'تنبيه 🟡';
+                    document.getElementById('statOverall').style.color = '#fbbf24';
+                } else {
+                    heading.textContent = 'يوجد مكون رئيسي بحاجة لتدخل أو صيانة';
+                    heading.style.color = '#f87171';
+                    document.getElementById('statOverall').textContent = 'حرج 🔴';
+                    document.getElementById('statOverall').style.color = '#f87171';
+                }
+
+                msg.textContent = data.overall_message;
+                document.getElementById('monTimestamp').textContent = data.timestamp || '--';
+                
+                if (data.system_info) {
+                    document.getElementById('monPythonVer').textContent = data.system_info.python_version || '--';
+                    document.getElementById('monPlatform').textContent = data.system_info.os_platform || '--';
+                    document.getElementById('monPID').textContent = data.system_info.process_id || '--';
+                }
+
+                const c = data.components || {};
+
+                // 2. Cookies Component
+                if (c.cookies) {
+                    const card = document.getElementById('cardCookies');
+                    card.className = `comp-card card ${c.cookies.status}`;
+                    const b = document.getElementById('compBadgeCookies');
+                    b.className = `badge-pill ${c.cookies.status}`;
+                    b.textContent = c.cookies.badge;
+
+                    document.getElementById('monCookieStatus').textContent = c.cookies.status === 'healthy' ? 'نشطة وصالحة ✓' : (c.cookies.status === 'warning' ? 'وضع الزائر' : 'منتهية الصلاحية');
+                    document.getElementById('monCookieStatus').style.color = c.cookies.status === 'healthy' ? '#34d399' : (c.cookies.status === 'warning' ? '#fbbf24' : '#f87171');
+                    document.getElementById('monCookieCount').textContent = `${c.cookies.total_cookies} كوكيز`;
+                    document.getElementById('monCookieDays').textContent = c.cookies.days_until_expiry ? `${c.cookies.days_until_expiry} يوم` : '--';
+                    document.getElementById('monCookieAuthKeys').textContent = `${(c.cookies.auth_cookies_found || []).length} مفاتيح متوفرة`;
+                    document.getElementById('monCookieSize').textContent = c.cookies.file_size_bytes ? `${c.cookies.file_size_bytes} بايت` : '0 بايت';
+                    document.getElementById('monCookieMsg').textContent = c.cookies.message || '--';
+
+                    // Top stat
+                    document.getElementById('statStatus').textContent = c.cookies.status === 'healthy' ? `نشطة (${c.cookies.days_until_expiry || 0} يوم)` : (c.cookies.status === 'warning' ? 'وضع الزائر' : 'غير متوفرة');
+                    document.getElementById('statStatus').style.color = c.cookies.status === 'healthy' ? '#34d399' : (c.cookies.status === 'warning' ? '#fbbf24' : '#f87171');
+                }
+
+                // 3. Deno Component
+                if (c.deno) {
+                    const card = document.getElementById('cardDeno');
+                    card.className = `comp-card card ${c.deno.status}`;
+                    const b = document.getElementById('compBadgeDeno');
+                    b.className = `badge-pill ${c.deno.status}`;
+                    b.textContent = c.deno.badge;
+
+                    document.getElementById('monDenoStatus').textContent = c.deno.installed ? 'مثبت ونشط ✓' : 'غير مثبت (اختياري)';
+                    document.getElementById('monDenoStatus').style.color = c.deno.installed ? '#34d399' : '#9ca3af';
+                    document.getElementById('monDenoVersion').textContent = c.deno.version || 'غير متوفر';
+                    document.getElementById('monDenoPath').textContent = c.deno.path || '--';
+                    document.getElementById('monDenoMsg').textContent = c.deno.message || '--';
+                }
+
+                // 4. Node.js Component
+                if (c.node) {
+                    const card = document.getElementById('cardNode');
+                    card.className = `comp-card card ${c.node.status}`;
+                    const b = document.getElementById('compBadgeNode');
+                    b.className = `badge-pill ${c.node.status}`;
+                    b.textContent = c.node.badge;
+
+                    document.getElementById('monNodeStatus').textContent = c.node.installed ? 'مثبت ونشط ✓' : 'مفقود ✗';
+                    document.getElementById('monNodeStatus').style.color = c.node.installed ? '#34d399' : '#f87171';
+                    document.getElementById('monNodeVersion').textContent = c.node.version || 'غير متوفر';
+                    document.getElementById('monNodePath').textContent = c.node.path || '--';
+                    document.getElementById('monNodePerm').textContent = (c.node.major_version >= 20) ? 'مدعوم بالكامل (Node 20+) ✓' : 'تحذير توافقية';
+                    document.getElementById('monNodePerm').style.color = (c.node.major_version >= 20) ? '#34d399' : '#fbbf24';
+                    document.getElementById('monNodeMsg').textContent = c.node.message || '--';
+
+                    // Top stat for JS Engines
+                    const jsText = (c.deno && c.deno.installed) ? `Deno + Node ${(c.node && c.node.version) || ''}` : `Node ${(c.node && c.node.version) || ''}`;
+                    document.getElementById('statJSEngine').textContent = jsText.trim() || 'Node.js';
+                    document.getElementById('statJSEngine').style.color = (c.deno && c.deno.installed) || (c.node && c.node.major_version >= 20) ? '#34d399' : '#fbbf24';
+                }
+
+                // 5. yt-dlp Component
+                if (c.ytdlp) {
+                    const card = document.getElementById('cardYtdlp');
+                    card.className = `comp-card card ${c.ytdlp.status}`;
+                    const b = document.getElementById('compBadgeYtdlp');
+                    b.className = `badge-pill ${c.ytdlp.status}`;
+                    b.textContent = c.ytdlp.badge;
+
+                    document.getElementById('monYtdlpCurr').textContent = c.ytdlp.current_version || '--';
+                    document.getElementById('monYtdlpLatest').textContent = c.ytdlp.latest_pypi_version || '--';
+                    document.getElementById('monYtdlpMatch').textContent = c.ytdlp.is_up_to_date ? 'محدث لأحدث إصدار ✓' : 'يتوفر إصدار أحدث!';
+                    document.getElementById('monYtdlpMatch').style.color = c.ytdlp.is_up_to_date ? '#34d399' : '#fbbf24';
+                    document.getElementById('monYtdlpMsg').textContent = c.ytdlp.message || '--';
+
+                    // Top stat for yt-dlp
+                    document.getElementById('statYtdlp').textContent = c.ytdlp.current_version || '--';
+                    document.getElementById('statYtdlp').style.color = c.ytdlp.is_up_to_date ? '#34d399' : '#fbbf24';
+                }
+
+                // 6. FFmpeg Component
+                if (c.ffmpeg) {
+                    const card = document.getElementById('cardFfmpeg');
+                    card.className = `comp-card card ${c.ffmpeg.status}`;
+                    const b = document.getElementById('compBadgeFfmpeg');
+                    b.className = `badge-pill ${c.ffmpeg.status}`;
+                    b.textContent = c.ffmpeg.badge;
+
+                    document.getElementById('monFfmpegStatus').textContent = c.ffmpeg.installed ? 'جاهز ومفعل ✓' : 'غير متوفر (اختياري)';
+                    document.getElementById('monFfmpegStatus').style.color = c.ffmpeg.installed ? '#34d399' : '#9ca3af';
+                    document.getElementById('monFfmpegVersion').textContent = c.ffmpeg.version || 'غير متوفر';
+                    document.getElementById('monFfmpegPath').textContent = c.ffmpeg.path || '--';
+                    document.getElementById('monFfmpegMsg').textContent = c.ffmpeg.message || '--';
+                }
+
+                // 7. Network Component
+                if (c.network) {
+                    const card = document.getElementById('cardNetwork');
+                    card.className = `comp-card card ${c.network.status}`;
+                    const b = document.getElementById('compBadgeNetwork');
+                    b.className = `badge-pill ${c.network.status}`;
+                    b.textContent = c.network.badge;
+
+                    document.getElementById('monNetStatus').textContent = c.network.connected ? 'متصل ومباشر ✓' : 'فشل الاتصال ✗';
+                    document.getElementById('monNetStatus').style.color = c.network.connected ? '#34d399' : '#f87171';
+                    document.getElementById('monNetLatency').textContent = `${c.network.latency_ms || '--'} ms`;
+                    document.getElementById('monNetCode').textContent = c.network.http_code ? `${c.network.http_code} OK` : '--';
+                    document.getElementById('monNetBlock').textContent = c.network.connected ? 'غير محظور (طبيعي 100%)' : 'اشتباه حظر';
+                    document.getElementById('monNetBlock').style.color = c.network.connected ? '#34d399' : '#f87171';
+                    document.getElementById('monNetMsg').textContent = c.network.message || '--';
+
+                    // Top stat for latency
+                    document.getElementById('statLatency').textContent = `${c.network.latency_ms || '--'} ms`;
+                    document.getElementById('statLatency').style.color = (c.network.latency_ms < 300) ? '#34d399' : '#fbbf24';
+                }
+
+                if (!silent) {
+                    showToast('تم تحديث حالة مركز المراقبة بنجاح!', 'success');
+                }
+            } catch (err) {
+                console.error('Failed to fetch health report:', err);
+                if (!silent) {
+                    showToast(`تعذر جلب تقرير المراقبة: ${err.message}`, 'error');
+                }
+            }
+        }
+
+        // Full System Probe
+        async function runSystemProbe() {
+            const btn = document.getElementById('fullProbeBtn');
+            const icon = document.getElementById('fullProbeIcon');
+            btn.disabled = true;
+            icon.innerHTML = '<span class="spinner"></span>';
+
+            const box = document.getElementById('probeResultBox');
+            const content = document.getElementById('probeResultContent');
+            box.style.display = 'block';
+            box.className = 'test-box';
+            content.innerHTML = '<div style="color: #9ca3af; text-align: center;"><span class="spinner"></span> جاري إجراء فحص استخراج حي والتواصل مع خوادم يوتيوب لحل التحديات وقياس الأداء...</div>';
+
+            try {
+                showToast('بدء الفحص التشخيصي الشامل لكافة المكونات...', 'info');
+                const res = await fetch('/api/monitor/probe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" })
+                });
+
+                const data = await res.json();
+                const p = data.probe || {};
+                
+                if (p.success) {
+                    box.className = 'test-box success';
+                    content.innerHTML = `
+                        <div style="font-weight: 800; color: #34d399; font-size: 1.05rem; margin-bottom: 8px;">
+                            ✓ اكتمل الفحص التشخيصي بنجاح تام! جميع مكونات السيرفر تعمل بتناغم وبدون أي أخطاء.
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 10px; font-size: 0.88rem; color: #d1d5db;">
+                            <div><strong>الفيديو التجريبي:</strong> ${p.video_title || 'YouTube Test'}</div>
+                            <div><strong>زمن الاستجابة الكلي:</strong> <span style="color: #34d399; font-weight: 700;">${p.elapsed_seconds} ثانية</span></div>
+                            <div><strong>إجمالي الروابط والجودات:</strong> <span style="color: #60a5fa; font-weight: 700;">${p.total_formats} مسار</span></div>
+                            <div><strong>الاستراتيجية المستخدمة:</strong> <code style="color: #a5b4fc;">${p.strategy || 'cookies'}</code></div>
+                        </div>
+                    `;
+                    showToast('نجح الفحص الشامل! السيرفر يعمل بكفاءة قصوى.', 'success');
+                } else {
+                    box.className = 'test-box error';
+                    content.innerHTML = `
+                        <div style="font-weight: 800; color: #f87171; font-size: 1.05rem; margin-bottom: 8px;">
+                            ✗ واجه الفحص التشخيصي مشكلة أثناء التواصل مع يوتيوب!
+                        </div>
+                        <div style="font-size: 0.88rem; color: #fca5a5;">
+                            <strong>رسالة الخطأ:</strong> ${p.error || p.message}
+                        </div>
+                    `;
+                    showToast('واجه الفحص مشكلة، يرجى مراجعة التفاصيل أدناه', 'error');
+                }
+
+                // Refresh all components immediately
+                await fetchMonitoringHealth(true);
+            } catch (err) {
+                box.className = 'test-box error';
+                content.innerHTML = `<div style="color: #f87171;">فشل الاتصال بـ API الفحص: ${err.message}</div>`;
+                showToast(`خطأ في فحص النظام: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                icon.textContent = '⚡';
+            }
+        }
+
+        // On-demand yt-dlp update
+        async function triggerYtdlpUpdate() {
+            const btn = document.getElementById('upgradeYtdlpBtn');
+            const icon = document.getElementById('upgradeYtdlpIcon');
+            if (btn) btn.disabled = true;
+            if (icon) icon.innerHTML = '<span class="spinner"></span>';
+
+            try {
+                showToast('جاري التحقق من أحدث إصدار على PyPI وترقية yt-dlp...', 'info');
+                const res = await fetch('/api/system/update', { method: 'POST' });
+                const data = await res.json();
+
+                if (data.status === 'updated') {
+                    showToast(`تمت ترقية yt-dlp بنجاح من (${data.old_version}) إلى (${data.new_version})!`, 'success');
+                } else if (data.status === 'already_latest') {
+                    showToast(`أنت تعمل بالفعل على أحدث إصدار (${data.current_version}) ✓`, 'info');
+                } else {
+                    showToast(`نتيجة التحديث: ${data.message}`, 'info');
+                }
+
+                await fetchMonitoringHealth(true);
+            } catch (err) {
+                showToast(`فشل تحديث yt-dlp: ${err.message}`, 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+                if (icon) icon.textContent = '🚀';
+            }
+        }
+
+        async function checkNetworkPingOnly() {
+            try {
+                showToast('جاري قياس بينغ الاتصال بيوتيوب...', 'info');
+                await fetchMonitoringHealth(true);
+                showToast('تم تحديث قياس زمن الاتصال!', 'success');
+            } catch (err) {
+                showToast(`خطأ: ${err.message}`, 'error');
+            }
         }
 
         function showToast(message, type = 'info') {

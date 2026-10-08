@@ -2,7 +2,9 @@ import os
 import sys
 import shutil
 import logging
+import asyncio
 from typing import Optional
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query, Request, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
@@ -17,6 +19,12 @@ from cookie_manager import (
     clear_cookies_file,
     get_active_cookie_path
 )
+from updater_service import (
+    get_updater_status,
+    run_ytdlp_upgrade,
+    background_auto_updater
+)
+from health_monitor import get_full_monitoring_report
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -24,10 +32,23 @@ logger = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DASHBOARD_FILE = os.path.join(BASE_DIR, "static", "dashboard.html")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """إدارة دورة حياة التطبيق وتشغيل مهام التحديث التلقائي الدوري في الخلفية."""
+    logger.info("Initializing YouTube Extractor API & Monitoring Center...")
+    # بدء مهمة التحديث التلقائي كل 12 ساعة
+    updater_task = asyncio.create_task(background_auto_updater(interval_seconds=43200))
+    yield
+    updater_task.cancel()
+    logger.info("Server shutting down.")
+
+
 app = FastAPI(
     title="YouTube Direct Links Extractor & Cookie Hub API",
-    description="API متطور لاستخراج الروابط المباشرة المؤقتة لجميع جودات فيديو اليوتيوب مع إدارة شاملة لكوكيز الدخول بجميع الصيغ (JSON, Netscape) وتشخيص حي.",
-    version="1.2.0"
+    description="API متطور لاستخراج الروابط المباشرة المؤقتة لجميع جودات فيديو اليوتيوب مع إدارة شاملة لكوكيز الدخول، مركز مراقبة حي، وتحديثات تلقائية لمكتبة yt-dlp.",
+    version="1.3.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -62,10 +83,15 @@ def root_endpoint(request: Request):
     return {
         "status": "online",
         "service": "YouTube Direct Links Extractor & Cookie Hub API",
+        "version": "1.3.0",
         "dashboard": "/dashboard",
         "documentation": "/docs",
         "endpoints": {
-            "GET /dashboard": "لوحة التحكم التفاعلية الشاملة",
+            "GET /dashboard": "لوحة التحكم التفاعلية ومركز المراقبة الشامل",
+            "GET /api/monitor/health": "مركز مراقبة صحة كافة المكونات (Deno, Node, yt-dlp, FFmpeg, Cookies)",
+            "POST /api/monitor/probe": "إجراء فحص تشخيصي حي لكافة المكونات وشبكة يوتيوب",
+            "GET /api/system/version": "تقرير إصدارات yt-dlp وحالة التحديث التلقائي",
+            "POST /api/system/update": "تحديث فوري لـ yt-dlp إلى أحدث إصدار على PyPI",
             "GET /api/cookies/status": "فحص حالة وصلاحية الكوكيز المسجلة",
             "POST /api/cookies/update": "تحديث الكوكيز بأي صيغة (JSON أو Netscape)",
             "POST /api/cookies/test": "فحص حي للكوكيز الحالية",
@@ -80,10 +106,43 @@ def root_endpoint(request: Request):
 
 @app.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard & Health"])
 def get_dashboard():
-    """عرض لوحة التحكم التفاعلية المباشرة لإدارة الكوكيز واستخراج الروابط"""
+    """عرض لوحة التحكم التفاعلية المباشرة لإدارة الكوكيز واستخراج الروابط ومركز المراقبة"""
     if os.path.exists(DASHBOARD_FILE):
         return FileResponse(DASHBOARD_FILE, media_type="text/html")
     raise HTTPException(status_code=404, detail="Dashboard file not found.")
+
+
+# ===================== MONITORING & AUTO-UPDATER ENDPOINTS =====================
+
+@app.get("/api/monitor/health", tags=["Monitoring Center"])
+def get_health_monitoring():
+    """تقرير مراقبة شامل وفوري لكافة مكونات النظام (Deno, Node, yt-dlp, Cookies, FFmpeg, Network)"""
+    return get_full_monitoring_report()
+
+
+@app.post("/api/monitor/probe", tags=["Monitoring Center"])
+def run_system_probe(payload: Optional[CookieTestRequest] = None):
+    """إجراء فحص حي فوري وتجربة اتصال مع يوتيوب لقياس زمن الاستجابة والتأكد من عمل كافة المكونات"""
+    target_url = (payload.url if payload and payload.url else "https://www.youtube.com/watch?v=dQw4w9WgXcQ").strip()
+    probe_result = test_cookie_health_live(target_url)
+    health = get_full_monitoring_report()
+    return {
+        "probe": probe_result,
+        "health": health
+    }
+
+
+@app.get("/api/system/version", tags=["Auto-Updater"])
+def get_system_version_info():
+    """تقرير إصدار yt-dlp الحالي والإصدار المتاح على PyPI وحالة التحديث التلقائي"""
+    return get_updater_status()
+
+
+@app.post("/api/system/update", tags=["Auto-Updater"])
+def trigger_system_update(force: bool = Query(False, description="إجبار التحديث حتى لو كان الإصدار متطابقاً")):
+    """تحديث مكتبة yt-dlp فورياً إلى أحدث إصدار متاح عبر pip دون الحاجة لإعادة تشغيل الحاوية"""
+    res = run_ytdlp_upgrade(force=force)
+    return res
 
 
 # ===================== COOKIES MANAGEMENT ENDPOINTS =====================
@@ -171,6 +230,8 @@ def debug_info():
             "cookies_found": cookie_path is not None,
             "cookies_path": cookie_path,
             "cookies_size_bytes": os.path.getsize(cookie_path) if cookie_path and os.path.exists(cookie_path) else 0,
+            "deno_installed": shutil.which("deno") is not None,
+            "deno_path": shutil.which("deno"),
             "node_installed": shutil.which("node") is not None,
             "node_path": shutil.which("node"),
             "ffmpeg_installed": shutil.which("ffmpeg") is not None,
@@ -217,7 +278,7 @@ def handle_extraction(url: str):
         error_msg = str(e)
         logger.error(f"Extraction failed: {error_msg}")
 
-        detail_msg = f"فشل استخراج الروابط: {error_msg} (يمكنك تحديث الكوكيز عبر /dashboard أو مراجعة /api/logs)"
+        detail_msg = f"فشل استخراج الروابط: {error_msg} (يمكنك فحص مركز المراقبة عبر /dashboard أو مراجعة /api/logs)"
         if "The page needs to be reloaded" in error_msg:
             detail_msg = "يوتيوب يطلب تحديث الكوكيز (انتهت الجلسة). يرجى لصق كوكيز جديدة عبر لوحة التحكم /dashboard."
         elif "Sign in to confirm" in error_msg or "Please sign in" in error_msg:
