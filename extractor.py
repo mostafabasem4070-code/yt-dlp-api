@@ -53,12 +53,8 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
         },
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'ios', 'web', 'mweb'],
-            }
-        },
-        'js_runtimes': {'node': {}}
+        'js_runtimes': {'node': {}},
+        'remote_components': ['ejs:github']
     }
 
     # إضافة ملف الكوكيز إذا كان متوفراً
