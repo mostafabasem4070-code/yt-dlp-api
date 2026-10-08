@@ -1,16 +1,25 @@
 # استخدام صورة بايثون رسمية خفيفة
 FROM python:3.11-slim
 
-# منع بايثون من كتابة ملفات pyc وضمان إخراج السجلات فورا
+# منع بايثون من كتابة ملفات pyc وضمان إخراج السجلات فوراً
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# تثبيت الأدوات الأساسية ومكتبة ffmpeg و nodejs لتشغيل اكواد الجافاسكريبت لـ yt-dlp
+# تثبيت الأدوات الأساسية ومكتبة ffmpeg
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    nodejs \
     curl \
+    ffmpeg \
+    ca-certificates \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
+
+# تثبيت Node.js 20 LTS الحديث (اللازم لـ yt-dlp لدعم --permission وحل تحديات n-challenge)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# تثبيت Deno (المحرك الافتراضي والمفضل رسمياً من yt-dlp لحل تحديات التشفير والبوت)
+COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 
 WORKDIR /app
 

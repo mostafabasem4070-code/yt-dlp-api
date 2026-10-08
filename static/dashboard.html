@@ -993,7 +993,8 @@
                         <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z"/></svg>
                         <span>سجل العمليات والأخطاء الحية (Live Console)</span>
                     </div>
-                    <div style="display: flex; gap: 8px;">
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" style="padding: 6px 14px; font-size: 0.82rem;" onclick="copyAllLogs()">📋 نسخ السجل بالكامل</button>
                         <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.82rem;" onclick="fetchLogs()">🔄 تحديث</button>
                         <button class="btn btn-danger" style="padding: 6px 14px; font-size: 0.82rem;" onclick="clearLogs()">🗑️ مسح السجلات</button>
                     </div>
@@ -1524,6 +1525,21 @@
 
             // Scroll to bottom
             box.scrollTop = box.scrollHeight;
+        }
+
+        async function copyAllLogs() {
+            try {
+                const res = await fetch('/api/logs?raw=true');
+                const text = await res.text();
+                if (!text || text.trim() === '') {
+                    showToast('لا توجد سجلات لنسخها حالياً', 'info');
+                    return;
+                }
+                await navigator.clipboard.writeText(text);
+                showToast('تم نسخ السجل بالكامل إلى الحافظة بنجاح!', 'success');
+            } catch (err) {
+                showToast('فشل نسخ السجل: ' + err.message, 'error');
+            }
         }
 
         async function clearLogs() {

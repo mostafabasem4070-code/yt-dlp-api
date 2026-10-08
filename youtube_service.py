@@ -53,11 +53,13 @@ def format_duration(seconds: Optional[int]) -> Optional[str]:
 
 
 def _get_js_runtime_config() -> Dict[str, Any]:
-    """اكتشاف محرك جافاسكريبت المتاح (Node.js) لحل تحديات البوت والتوقيع في يوتيوب."""
-    node_path = shutil.which("node")
-    if node_path:
-        return {'node': {}}
-    return {}
+    """اكتشاف محركات جافاسكريبت المتاحة (Deno أو Node.js) لحل تحديات البوت والتوقيع في يوتيوب."""
+    runtimes = {}
+    if shutil.which("deno"):
+        runtimes['deno'] = {}
+    if shutil.which("node"):
+        runtimes['node'] = {}
+    return runtimes
 
 
 def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[List[str]] = None) -> Dict[str, Any]:
