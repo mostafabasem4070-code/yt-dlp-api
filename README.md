@@ -1,0 +1,200 @@
+# 🚀 نظام استخراج الروابط المباشرة لليوتيوب (YouTube Direct Links API)
+
+واجهة برمجية (RESTful API) سريعة ومبنية بلغة Python و FastAPI ومكتبة `yt-dlp` الشهيرة، صُممت خصيصاً ليتم تشغيلها ورفعها على منصة **Railway** مجاناً أو بأقل تكلفة، وتتيح لموقعك إرسال رابط فيديو يوتيوب والحصول على ملف `JSON` منظم يحتوي على تفاصيل الفيديو وروابط البث والتحميل المباشرة المؤقتة لجميع الجودات (بما في ذلك فصل الفيديو والصوت للجودات الفائقة 1080p و 4K).
+
+---
+
+## 📂 هيكل المشروع (Project Structure)
+
+```text
+├── main.py              # ملف خادم FastAPI ونقاط النهاية (Endpoints) مع دعم CORS
+├── extractor.py         # محرك الاستخراج وتحليل الجودات بواسطة yt-dlp
+├── requirements.txt     # مكتبات بايثون المطلوبة
+├── Dockerfile           # ملف تشغيل الحاوية لـ Railway (يشمل ffmpeg)
+├── Procfile             # خيار بديل للتشغيل عبر Buildpacks
+├── railway.json         # إعدادات النشر على منصة Railway
+├── test_client.py       # كود بايثون بسيط لتجربة الـ API محلياً أو سحابياً
+└── .gitignore           # الملفات المستثناة من رفع Git
+```
+
+---
+
+## 🛠️ كيف يعمل النظام؟
+
+1. موقعك (الفرونت إند أو الباك إند) يرسل رابط الفيديو إلى الـ API عبر `POST` أو `GET`.
+2. السيرفر على Railway يقوم بتشغيل مكتبة `yt-dlp` في وضع الفحص (`download=False`) دون تحميل الفيديو على السيرفر لتوفير الموارد واستهلاك البيانات.
+3. يستخرج النظام روابط خوادم جوجل المباشرة المؤقتة (`googlevideo.com`) ويصنفها إلى 3 مجموعات:
+   - **`video_with_audio`**: فيديوهات مدمجة بالصوت (غالباً 720p و 360p) جاهزة للتشغيل والتحميل المباشر.
+   - **`video_only`**: فيديوهات فائقة الجودة بدون صوت (1080p, 1440p, 4K, 8K) لمن يريد أعلى دقة صورة.
+   - **`audio_only`**: مسارات صوتية منفصلة بصيغ وجودات مختلفة (m4a, webm).
+4. يرجع الـ API رد `JSON` متكامل يحتوي على تفاصيل الفيديو (العنوان، القناة، المدة، الصورة المصغرة) ومصفوفات الروابط.
+
+---
+
+## 💻 طريقة التشغيل والتجربة محلياً (Local Setup)
+
+إذا أردت تجربة النظام على جهازك أولاً:
+
+1. افتح موجه الأوامر (Terminal أو PowerShell) في مجلد المشروع:
+   ```bash
+   python -m venv .venv
+   ```
+2. تفعيل البيئة الافتراضية:
+   - في ويندوز:
+     ```powershell
+     .\.venv\Scripts\activate
+     ```
+3. تثبيت المتطلبات:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. تشغيل السيرفر:
+   ```bash
+   uvicorn main:app --reload --port 8000
+   ```
+5. افتح المتصفح على:
+   - واجهة التجربة التفاعلية (Swagger UI): `http://127.0.0.1:8000/docs`
+   - تجربة استخراج سريع: `http://127.0.0.1:8000/api/extract?url=https://www.youtube.com/watch?v=dQw4w9WgXcQ`
+
+---
+
+## ☁️ خطوات الرفع والنشر على Railway من الصفر
+
+### الخطوة 1: رفع المشروع إلى مستودع GitHub
+1. تأكد من تثبيت Git على جهازك ثم نفذ الأوامر التالية في مجلد المشروع:
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial commit for YouTube extractor API"
+   ```
+2. أنشئ مستودعاً جديداً (New Repository) على حسابك في [GitHub](https://github.com) (اجعله Public أو Private).
+3. اربط المشروع وارفعه:
+   ```bash
+   git remote add origin https://github.com/USERNAME/REPO_NAME.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+### الخطوة 2: النشر على Railway
+1. ادخل إلى موقع [Railway.app](https://railway.app) وسجل الدخول بحساب GitHub الخاص بك.
+2. اضغط على زر **"New Project"**.
+3. اختر **"Deploy from GitHub repo"**.
+4. حدد المستودع الذي أنشأته للتو.
+5. سيتعرف Railway تلقائياً على ملف `Dockerfile` وسيبدأ عملية البناء والتشغيل فوراً.
+
+### الخطوة 3: إنشاء رابط عام (Public Domain)
+1. بعد اكتمال الـ Deployment، اضغط على الخدمة (Service) في لوحة تحكم Railway.
+2. توجه إلى تبويب **"Settings"**.
+3. انزل إلى قسم **"Networking"** واضغط على زر **"Generate Domain"**.
+4. ستحصل على رابط مثل:
+   ```text
+   https://youtube-extractor-production.up.railway.app
+   ```
+
+---
+
+## 📡 كيفية استخدام الـ API من موقعك
+
+### 1. طلب POST (الموصى به)
+- **الرابط**: `https://your-app.up.railway.app/api/extract`
+- **الهيدر**: `Content-Type: application/json`
+- **جسم الطلب (Body)**:
+  ```json
+  {
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+  }
+  ```
+
+#### مثال كود JavaScript (Fetch من موقعك):
+```javascript
+async function getDirectLinks(youtubeUrl) {
+  try {
+    const response = await fetch("https://your-app.up.railway.app/api/extract", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ url: youtubeUrl })
+    });
+    
+    const data = await response.json();
+    console.log("بيانات الفيديو:", data.video_info);
+    console.log("فيديوهات بصوت:", data.streams.video_with_audio);
+    console.log("فيديوهات بدون صوت (جودة عالية):", data.streams.video_only);
+    console.log("صوتيات فقط:", data.streams.audio_only);
+    return data;
+  } catch (error) {
+    console.error("حدث خطأ:", error);
+  }
+}
+```
+
+### 2. طلب GET (مباشر عبر الرابط)
+```text
+https://your-app.up.railway.app/api/extract?url=https://www.youtube.com/watch?v=dQw4w9WgXcQ
+```
+
+---
+
+## 📋 نموذج الرد (Response Format)
+
+```json
+{
+  "status": "success",
+  "video_info": {
+    "id": "dQw4w9WgXcQ",
+    "title": "Rick Astley - Never Gonna Give You Up (Official Music Video)",
+    "duration_seconds": 213,
+    "duration_readable": "03:33",
+    "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+    "uploader": "Rick Astley",
+    "channel_url": "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw",
+    "view_count": 1500000000,
+    "description_preview": "The official video for...",
+    "original_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+  },
+  "stats": {
+    "total_formats": 25,
+    "video_with_audio_count": 2,
+    "video_only_count": 18,
+    "audio_only_count": 5
+  },
+  "streams": {
+    "video_with_audio": [
+      {
+        "format_id": "22",
+        "ext": "mp4",
+        "quality_note": "720p",
+        "resolution": "1280x720",
+        "filesize_readable": "32.45 MB",
+        "url": "https://rr5---sn-4g5ednks.googlevideo.com/videoplayback?..."
+      }
+    ],
+    "video_only": [
+      {
+        "format_id": "137",
+        "ext": "mp4",
+        "quality_note": "1080p",
+        "resolution": "1920x1080",
+        "filesize_readable": "85.20 MB",
+        "url": "https://rr5---sn-4g5ednks.googlevideo.com/videoplayback?..."
+      }
+    ],
+    "audio_only": [
+      {
+        "format_id": "140",
+        "ext": "m4a",
+        "abr_kbps": 128.0,
+        "filesize_readable": "3.50 MB",
+        "url": "https://rr5---sn-4g5ednks.googlevideo.com/videoplayback?..."
+      }
+    ]
+  }
+}
+```
+
+---
+
+## ⚠️ ملاحظات هامة حول روابط يوتيوب المباشرة:
+1. **مدة صلاحية الروابط (Expiration)**: الروابط المباشرة لـ `googlevideo.com` تكون صالحة عادة لمدة **6 ساعات** تقريباً من وقت استخراجها، وبعدها يجب طلب رابط جديد.
+2. **ارتباط الـ IP (IP Binding)**: في بعض الأحيان تقوم خوادم يوتيوب بربط رابط الفيديو المباشر بعنوان الـ IP الذي استخرج الرابط (IP سيرفر Railway). إن واجهت هذا في المتصفح، يمكنك جعل السيرفر يعمل كـ Proxy للتحميل أو إرسال Cookies لحساب يوتيوب.
