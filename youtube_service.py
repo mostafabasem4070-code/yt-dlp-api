@@ -3,8 +3,9 @@ import math
 import logging
 from typing import Dict, Any, List, Optional
 import yt_dlp
+from log_manager import YtDlpLogger
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("youtube_service")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_COOKIES_FILE = os.path.join(BASE_DIR, "cookies.txt")
@@ -21,7 +22,7 @@ if env_cookies:
         logger.warning(f"Could not write YOUTUBE_COOKIES to file: {e}")
 
 def get_cookie_file_path() -> Optional[str]:
-    """العثور على مسار ملف الكوكيز المؤكد."""
+    """العثور على مسار ملف الكوكيز المؤكد مع التحقق من الحجم والصلاحية."""
     candidates = [
         COOKIES_FILE,
         os.path.join(BASE_DIR, "cookies.txt"),
@@ -31,7 +32,7 @@ def get_cookie_file_path() -> Optional[str]:
     ]
     for path in candidates:
         if path and os.path.exists(path) and os.path.getsize(path) > 10:
-            return path
+            return os.path.abspath(path)
     return None
 
 def format_bytes(size_bytes: Optional[int]) -> Optional[str]:
@@ -55,16 +56,14 @@ def format_duration(seconds: Optional[int]) -> Optional[str]:
         return f"{hours:02d}:{minutes:02d}:{secs:02d}"
     return f"{minutes:02d}:{secs:02d}"
 
-def extract_youtube_info(url: str) -> Dict[str, Any]:
-    """
-    استخراج تفاصيل الفيديو والروابط المباشرة المؤقتة لجميع الجودات.
-    """
+def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[List[str]] = None) -> Dict[str, Any]:
+    """تنفيذ استخراج yt-dlp بإعدادات محددة وسجل مخصص."""
     ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'no_color': True,
+        'quiet': False,
+        'no_warnings': False,
         'skip_download': True,
         'extract_flat': False,
+        'logger': YtDlpLogger(),
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -73,26 +72,73 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
         'remote_components': ['ejs:github']
     }
 
-    # إضافة ملف الكوكيز إذا كان متوفراً
-    cookie_path = get_cookie_file_path()
-    if cookie_path:
-        ydl_opts['cookiefile'] = cookie_path
-        logger.info(f"Using cookies from: {cookie_path}")
+    if use_cookies:
+        cookie_path = get_cookie_file_path()
+        if cookie_path:
+            ydl_opts['cookiefile'] = cookie_path
+            logger.info(f"Using cookies from: {cookie_path}")
+        else:
+            logger.warning("Cookie file requested but none found on disk.")
     else:
-        logger.warning("No cookies.txt found! Requests may fail on datacenter IPs.")
+        logger.info("Attempting extraction without cookies.")
 
-    # دعم البروكسي اختياري في حال الحاجة
+    if custom_clients:
+        ydl_opts['extractor_args'] = {
+            'youtube': {
+                'player_client': custom_clients
+            }
+        }
+        logger.info(f"Using custom player_clients: {custom_clients}")
+
     proxy = os.getenv("YOUTUBE_PROXY") or os.getenv("HTTP_PROXY")
     if proxy:
         ydl_opts['proxy'] = proxy
-        logger.info("Using configured proxy for requests.")
+        logger.info("Using configured proxy.")
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
         if not info:
-            raise ValueError("تعذر جلب بيانات الفيديو من الرابط المرفق.")
+            raise ValueError("No video data returned by yt-dlp.")
+        return info
 
-    # استخراج البيانات الأساسية
+def extract_youtube_info(url: str) -> Dict[str, Any]:
+    """
+    استخراج تفاصيل الفيديو والروابط المباشرة المؤقتة مع آلية إعادة محاولة ذكية
+    لتجاوز خطأ 'The page needs to be reloaded' أو تحديات البوت.
+    """
+    info = None
+    last_error = None
+
+    # الاستراتيجية الأولى: الاستخراج الطبيعي مع الكوكيز والمكونات البرمجية
+    try:
+        logger.info(f"Strategy 1: Full extraction with cookies for URL: {url}")
+        info = _run_yt_dlp(url, use_cookies=True)
+    except Exception as e:
+        last_error = e
+        err_str = str(e)
+        logger.warning(f"Strategy 1 failed with error: {err_str}")
+
+        # إذا كان الخطأ "The page needs to be reloaded" أو خطأ متعلق بالكوكيز
+        if "The page needs to be reloaded" in err_str or "Sign in to confirm" in err_str:
+            # الاستراتيجية الثانية: محاولة استخدام عملاء بدلاء (tv, mweb, web)
+            try:
+                logger.info("Strategy 2: Retrying with alternate player clients (tv, mweb, web)...")
+                info = _run_yt_dlp(url, use_cookies=True, custom_clients=['tv', 'mweb', 'web'])
+            except Exception as e2:
+                last_error = e2
+                logger.warning(f"Strategy 2 failed: {str(e2)}")
+                # الاستراتيجية الثالثة: محاولة بدون كوكيز (أحياناً الكوكيز المنتهية تسبب reload)
+                try:
+                    logger.info("Strategy 3: Retrying without cookies...")
+                    info = _run_yt_dlp(url, use_cookies=False)
+                except Exception as e3:
+                    last_error = e3
+                    logger.error(f"Strategy 3 failed: {str(e3)}")
+
+    if not info:
+        raise last_error or RuntimeError("Failed to extract video information.")
+
+    # معالجة وتنظيم بيانات الفيديو والجودات
     video_id = info.get("id")
     title = info.get("title")
     duration = info.get("duration")
@@ -104,7 +150,6 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
     short_description = (description[:300] + "...") if description and len(description) > 300 else description
 
     raw_formats: List[Dict[str, Any]] = info.get("formats", [])
-
     video_with_audio: List[Dict[str, Any]] = []
     video_only: List[Dict[str, Any]] = []
     audio_only: List[Dict[str, Any]] = []
@@ -116,7 +161,6 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
 
         vcodec = f.get("vcodec") or "none"
         acodec = f.get("acodec") or "none"
-
         has_video = vcodec != "none"
         has_audio = acodec != "none"
 
@@ -135,14 +179,13 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
             "filesize_readable": filesize_str,
             "vcodec": vcodec,
             "acodec": acodec,
-            "abr_kbps": f.get("abr"),  # audio bitrate
-            "vbr_kbps": f.get("vbr"),  # video bitrate
+            "abr_kbps": f.get("abr"),
+            "vbr_kbps": f.get("vbr"),
             "container": f.get("container"),
             "protocol": f.get("protocol"),
-            "url": direct_url,         # الرابط المباشر المؤقت
+            "url": direct_url,
         }
 
-        # تصنيف الروابط
         if has_video and has_audio:
             video_with_audio.append(format_data)
         elif has_video and not has_audio:
@@ -150,7 +193,6 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
         elif has_audio and not has_video:
             audio_only.append(format_data)
 
-    # ترتيب الجودات من الأعلى إلى الأدنى
     def sort_by_height(item):
         return item.get("height") or 0
 
@@ -182,11 +224,8 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
             "audio_only_count": len(audio_only),
         },
         "streams": {
-            # فيديوهات مدمجة بالصوت (عادة 720p و 360p) جاهزة للتشغيل المباشر
             "video_with_audio": video_with_audio,
-            # فيديوهات فقط بدون صوت (1080p, 2K, 4K, 8K)
             "video_only": video_only,
-            # ملفات صوتية فقط (m4a, webm, opus)
             "audio_only": audio_only,
         }
     }
