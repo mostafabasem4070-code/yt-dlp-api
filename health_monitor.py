@@ -26,43 +26,58 @@ def _run_quick_cmd(cmd: List[str], timeout: int = 4) -> Tuple[bool, str]:
 
 
 def check_deno_health() -> Dict[str, Any]:
-    """فحص حالة محرك Deno لحل تحديات الجافاسكريبت."""
+    """فحص حالة محرك Deno لحل تحديات الجافاسكريبت والتوقيع (n-challenge)."""
     deno_path = shutil.which("deno")
     if not deno_path:
         return {
-            "name": "Deno JS Engine",
+            "key": "deno",
+            "name": "Deno JS Engine (محرك دينو)",
+            "category": "engine",
+            "state": "stopped",
+            "state_text": "غير مثبت (اختياري)",
             "installed": False,
             "status": "warning",
             "version": None,
             "path": None,
-            "message": "غير مثبت (سيتم الاعتماد على Node.js لحل التحديات)",
-            "badge": "غياب اختياري"
+            "message": "غير مثبت على الخادم (يتم الاعتماد تلقائياً على محرك Node.js لحل التحديات البرمجية).",
+            "badge": "غياب اختياري",
+            "action_type": None
         }
     
     ok, ver_str = _run_quick_cmd([deno_path, "--version"])
     return {
-        "name": "Deno JS Engine",
+        "key": "deno",
+        "name": "Deno JS Engine (محرك دينو)",
+        "category": "engine",
+        "state": "running",
+        "state_text": "يعمل بكفاءة ونشط",
         "installed": True,
         "status": "healthy",
         "version": ver_str if ok else "موجود",
         "path": deno_path,
-        "message": "مثبت ويعمل بكفاءة لحل تحديات n-challenge",
-        "badge": "سليم ومفعل"
+        "message": "مثبت ويعمل بكفاءة فائقة لحل تحديات n-challenge وتوقيعات يوتيوب المشفرة.",
+        "badge": "سليم ومفعل",
+        "action_type": None
     }
 
 
 def check_node_health() -> Dict[str, Any]:
-    """فحص حالة محرك Node.js والتأكد من دعمه للميزات الحديثة (--permission)."""
+    """فحص حالة محرك Node.js ومقارنة إصداره بدعم ميزات الأمان الحديثة."""
     node_path = shutil.which("node")
     if not node_path:
         return {
-            "name": "Node.js Engine",
+            "key": "node",
+            "name": "Node.js Engine (محرك نود)",
+            "category": "engine",
+            "state": "stopped",
+            "state_text": "متوقف / غير مثبت",
             "installed": False,
             "status": "critical",
             "version": None,
             "path": None,
-            "message": "غير مثبت! يلزم وجود Node.js أو Deno لحل تشفير يوتيوب",
-            "badge": "مفقود"
+            "message": "غير مثبت! يلزم توفر محرك Node.js أو Deno لفك تشفير وتوقيع روابط يوتيوب.",
+            "badge": "مفقود",
+            "action_type": None
         }
 
     ok, ver_str = _run_quick_cmd([node_path, "-v"])
@@ -75,26 +90,37 @@ def check_node_health() -> Dict[str, Any]:
 
     if major_ver >= 20:
         status = "healthy"
-        msg = f"إصدار حديث ({ver_str}) يدعم كافة ميزات الأمان والتحديات البرمجية."
+        state = "running"
+        state_text = f"يعمل بأحدث إصدار ({ver_str})"
+        msg = f"إصدار حديث ({ver_str}) يدعم كافة ميزات الأمان وتحديات يوتيوب الحديثة."
         badge = "حديث وممتاز"
     elif major_ver >= 18:
         status = "warning"
-        msg = f"إصدار ({ver_str}) قد يواجه قيوداً في خاصية --permission. يُفضل الترقية لـ Node 20."
+        state = "needs_update"
+        state_text = f"يحتاج لتحديث (إصدار {ver_str})"
+        msg = f"إصدار ({ver_str}) يعمل ولكن يُفضل الترقية لـ Node 20 لدعم صلاحيات الحماية الكاملة."
         badge = "إصدار قديم نسبياً"
     else:
         status = "warning"
-        msg = f"إصدار ({ver_str})."
-        badge = "مقبول"
+        state = "needs_update"
+        state_text = f"يحتاج لتحديث عاجل ({ver_str})"
+        msg = f"إصدار قديم ({ver_str}). يوصى بالترقية إلى Node 20."
+        badge = "قديم"
 
     return {
-        "name": "Node.js Engine",
+        "key": "node",
+        "name": "Node.js Engine (محرك نود)",
+        "category": "engine",
+        "state": state,
+        "state_text": state_text,
         "installed": True,
         "status": status,
         "version": ver_str if ok else "موجود",
         "major_version": major_ver,
         "path": node_path,
         "message": msg,
-        "badge": badge
+        "badge": badge,
+        "action_type": None
     }
 
 
@@ -103,24 +129,34 @@ def check_ffmpeg_health() -> Dict[str, Any]:
     ffmpeg_path = shutil.which("ffmpeg")
     if not ffmpeg_path:
         return {
-            "name": "FFmpeg Media Core",
+            "key": "ffmpeg",
+            "name": "FFmpeg Media Core (محرك الوسائط)",
+            "category": "engine",
+            "state": "stopped",
+            "state_text": "غير مثبت (الدمج المحلي معطل)",
             "installed": False,
             "status": "warning",
             "version": None,
             "path": None,
-            "message": "غير مثبت (الروابط المباشرة ستعمل، لكن دمج الصوت والصورة محلياً لن يعمل)",
-            "badge": "غير متوفر"
+            "message": "غير مثبت على الخادم (الروابط المباشرة تعمل بكفاءة، لكن دمج مسارات الفيديو والصوت المنفصلة محلياً غير متاح).",
+            "badge": "غير متوفر",
+            "action_type": None
         }
 
     ok, ver_str = _run_quick_cmd([ffmpeg_path, "-version"])
     return {
-        "name": "FFmpeg Media Core",
+        "key": "ffmpeg",
+        "name": "FFmpeg Media Core (محرك الوسائط)",
+        "category": "engine",
+        "state": "running",
+        "state_text": "يعمل وجاهز للدمج",
         "installed": True,
         "status": "healthy",
         "version": ver_str[:40] if ok else "موجود",
         "path": ffmpeg_path,
-        "message": "مثبت وجاهز لمعالجة الوسائط المتعددة والدمج",
-        "badge": "جاهز"
+        "message": "مثبت وجاهز لمعالجة الوسائط المتعددة والدمج المباشر.",
+        "badge": "جاهز",
+        "action_type": None
     }
 
 
@@ -134,14 +170,24 @@ def check_ytdlp_health() -> Dict[str, Any]:
     if is_up:
         badge = "أحدث إصدار ✓"
         status = "healthy"
-        msg = f"تعمل على أحدث إصدار متاح ({curr_v})."
+        state = "running"
+        state_text = "يعمل (أحدث إصدار)"
+        msg = f"تعمل على أحدث إصدار متاح رسميًا ({curr_v})."
+        action = None
     else:
         badge = f"يتوفر تحديث ({latest_v})"
         status = "warning"
-        msg = f"الإصدار الحالي {curr_v}، ويتوفر إصدار أحدث {latest_v} على PyPI."
+        state = "needs_update"
+        state_text = f"يحتاج إلى تحديث (يتوفر {latest_v})"
+        msg = f"الإصدار الحالي {curr_v}، ويتوفر إصدار أحدث {latest_v} على مستودع PyPI الرسمي."
+        action = "update_ytdlp"
 
     return {
-        "name": "yt-dlp Core",
+        "key": "ytdlp",
+        "name": "yt-dlp Core (محرك الاستخراج والتوقيع)",
+        "category": "core",
+        "state": state,
+        "state_text": state_text,
         "installed": True,
         "status": status,
         "current_version": curr_v,
@@ -149,32 +195,53 @@ def check_ytdlp_health() -> Dict[str, Any]:
         "is_up_to_date": is_up,
         "auto_updater_schedule": "كل 12 ساعة تلقائياً",
         "message": msg,
-        "badge": badge
+        "badge": badge,
+        "action_type": action
     }
 
 
 def check_cookies_component() -> Dict[str, Any]:
-    """فحص حالة مكون الكوكيز المسجلة وصلاحيتها ومفاتيحها."""
+    """فحص حالة مكون الكوكيز المسجلة وصلاحيتها وتواريخ انتهائها."""
     cookies, cookie_path = read_active_cookies()
     analysis = analyze_cookies_health(cookies)
     file_size = os.path.getsize(cookie_path) if cookie_path and os.path.exists(cookie_path) else 0
 
     status = analysis["status"]
-    if status == "valid":
-        comp_status = "healthy"
-        badge = "صالحة ونشطة"
+    days = analysis.get("days_until_expiry", 999)
+
+    if status == "valid" and analysis.get("has_auth"):
+        if days <= 3:
+            comp_status = "warning"
+            state = "needs_update"
+            state_text = f"تحتاج لتجديد (تنتهي خلال {days} أيام)"
+            badge = "قاربت على الانتهاء"
+        else:
+            comp_status = "healthy"
+            state = "running"
+            state_text = f"تعمل بنشاط ومسجلة ({analysis['total_cookies']} كوكي)"
+            badge = "صالحة ونشطة"
     elif status == "guest_only":
         comp_status = "warning"
+        state = "warning"
+        state_text = "وضع الزائر (غير مسجلة)"
         badge = "وضع الزائر"
     elif status == "expired":
         comp_status = "critical"
+        state = "stopped"
+        state_text = "متوقفة (منتهية الصلاحية تماماً)"
         badge = "منتهية الصلاحية"
     else:
-        comp_status = "critical"
+        comp_status = "warning"
+        state = "stopped"
+        state_text = "متوقفة (غير متوفرة)"
         badge = "غير متوفرة"
 
     return {
-        "name": "YouTube Cookies Session",
+        "key": "cookies",
+        "name": "YouTube Cookies Session (جلسة كوكيز يوتيوب)",
+        "category": "core",
+        "state": state,
+        "state_text": state_text,
         "status": comp_status,
         "file_path": cookie_path,
         "file_size_bytes": file_size,
@@ -182,10 +249,16 @@ def check_cookies_component() -> Dict[str, Any]:
         "has_auth": analysis["has_auth"],
         "auth_cookies_found": analysis["auth_cookies_found"],
         "days_until_expiry": analysis.get("days_until_expiry", 0),
+        "days_int": analysis.get("days_int", 0),
+        "hours_int": analysis.get("hours_int", 0),
+        "mins_int": analysis.get("mins_int", 0),
         "expiry_human": analysis.get("expiry_human", "--"),
+        "expiry_countdown": analysis.get("expiry_countdown", "--"),
+        "urgency": analysis.get("urgency", "guest"),
         "earliest_expiry_readable": analysis.get("earliest_expiry_readable"),
         "message": analysis["message"],
-        "badge": badge
+        "badge": badge,
+        "action_type": "manage_cookies"
     }
 
 
@@ -201,81 +274,396 @@ def check_youtube_connectivity() -> Dict[str, Any]:
             latency_ms = round((time.time() - start_time) * 1000, 1)
             code = response.getcode()
             return {
-                "name": "YouTube Network Connectivity",
+                "key": "network",
+                "name": "YouTube Connectivity (اتصال سيرفرات يوتيوب)",
+                "category": "network",
+                "state": "running",
+                "state_text": f"متصل ومستقر ({latency_ms} ms)",
                 "status": "healthy",
                 "connected": True,
                 "latency_ms": latency_ms,
                 "http_code": code,
-                "message": f"الاتصال بخوادم يوتيوب مباشر وسريع ({latency_ms} ms)",
-                "badge": f"{latency_ms} ms"
+                "message": f"الاتصال بخوادم يوتيوب مباشر وسريع وزمن الاستجابة ممتاز ({latency_ms} ms).",
+                "badge": f"{latency_ms} ms",
+                "action_type": "probe_network"
             }
     except Exception as e:
         latency_ms = round((time.time() - start_time) * 1000, 1)
         return {
-            "name": "YouTube Network Connectivity",
+            "key": "network",
+            "name": "YouTube Connectivity (اتصال سيرفرات يوتيوب)",
+            "category": "network",
+            "state": "stopped",
+            "state_text": "متوقف / تعذر الاتصال",
             "status": "critical",
             "connected": False,
             "latency_ms": latency_ms,
             "error": str(e),
             "message": f"فشل الاتصال بخوادم يوتيوب: {str(e)}",
-            "badge": "تعذر الاتصال"
+            "badge": "تعذر الاتصال",
+            "action_type": "probe_network"
         }
+
+
+def check_updater_worker_health() -> Dict[str, Any]:
+    """فحص حالة خدمة التحديث التلقائي المستمرة في خلفية السيرفر."""
+    from updater_service import _UPDATE_STATE
+    last_status = _UPDATE_STATE.get("last_update_status", "initialized")
+    last_msg = _UPDATE_STATE.get("last_update_message", "جاهز للفحص التلقائي")
+    enabled = _UPDATE_STATE.get("auto_update_enabled", True)
+
+    return {
+        "key": "auto_updater",
+        "name": "Auto-Updater Worker (خدمة التحديث التلقائي)",
+        "category": "service",
+        "state": "running" if enabled else "stopped",
+        "state_text": "تعمل بالخلفية (فحص دوري كل 12 ساعة)" if enabled else "متوقفة",
+        "status": "healthy" if enabled else "warning",
+        "badge": "مفعل 12h" if enabled else "معطل",
+        "installed": True,
+        "version": "1.0",
+        "schedule": "كل 12 ساعة تلقائياً",
+        "last_status": last_status,
+        "message": f"المهمة الخلفية نشطة لمراقبة وتحديث yt-dlp دون انقطاع. الحالة الحالية: {last_msg}",
+        "action_type": "update_ytdlp"
+    }
+
+
+def check_streaming_service_health() -> Dict[str, Any]:
+    """فحص محرك بث وتجزئة المقاطع (Chunked Range Streaming Engine)."""
+    try:
+        from stream_service import _METADATA_CACHE, DEFAULT_CHUNK_SIZE
+        cached_items = len(_METADATA_CACHE)
+        chunk_mb = round(DEFAULT_CHUNK_SIZE / (1024 * 1024), 1)
+        return {
+            "key": "streaming_engine",
+            "name": "Chunked Range Stream Engine (محرك البث والتجزئة)",
+            "category": "core",
+            "state": "running",
+            "state_text": "يعمل وجاهز لفك خنق السرعة",
+            "status": "healthy",
+            "badge": f"{chunk_mb}MB Chunks",
+            "installed": True,
+            "version": "1.4.0",
+            "chunk_size": f"{chunk_mb} MB",
+            "cached_streams": cached_items,
+            "message": f"المحرك نشط ويدعم تقطيع الفيديو لشرائح {chunk_mb}MB مع دعم التقديم والترجيع (Seeking) السلس وتجاوز قيود يوتيوب.",
+            "action_type": None
+        }
+    except Exception as e:
+        return {
+            "key": "streaming_engine",
+            "name": "Chunked Range Stream Engine (محرك البث والتجزئة)",
+            "category": "core",
+            "state": "warning",
+            "state_text": "تنبيه في محرك البث",
+            "status": "warning",
+            "badge": "تنبيه",
+            "installed": True,
+            "message": f"خطأ في فحص محرك البث: {e}",
+            "action_type": None
+        }
+
+
+def check_cloudflare_worker_health() -> Dict[str, Any]:
+    """فحص إعدادات وحالة شبكة بروكسي الحافة (Cloudflare Workers)."""
+    proxy_urls_str = os.getenv("STREAM_PROXY_URL", "").strip()
+    if proxy_urls_str:
+        proxies = [p.strip() for p in proxy_urls_str.split(",") if p.strip()]
+        return {
+            "key": "cloudflare_worker",
+            "name": "Cloudflare Edge Workers (بروكسي الحافة العالمي)",
+            "category": "network",
+            "state": "running",
+            "state_text": f"مفعل ونشط ({len(proxies)} بروكسي)",
+            "status": "healthy",
+            "badge": f"{len(proxies)} عقدة",
+            "installed": True,
+            "proxies": proxies,
+            "message": f"تم ربط {len(proxies)} خادم حافة كلاود فلير لتوزيع الأحمال وتفريغ استهلاك الباندويث عن السيرفر.",
+            "action_type": "switch_tab_proxies"
+        }
+    else:
+        return {
+            "key": "cloudflare_worker",
+            "name": "Cloudflare Edge Workers (بروكسي الحافة العالمي)",
+            "category": "network",
+            "state": "warning",
+            "state_text": "غير مضبوط (يعمل البث المباشر عبر السيرفر)",
+            "status": "warning",
+            "badge": "محلي فقط",
+            "installed": False,
+            "proxies": [],
+            "message": "لم يتم تعيين STREAM_PROXY_URL في .env. السيرفر حالياً يبث المقاطع بنجاح عبر المحرك الداخلي بدون كلاود فلير.",
+            "action_type": "switch_tab_proxies"
+        }
+
+
+def check_security_firewall_health() -> Dict[str, Any]:
+    """فحص جدار حماية الأمان وحظر الدومينات الغريبة ومصادقة الجلسات."""
+    try:
+        from security_manager import get_security_settings
+        settings = get_security_settings()
+        domains = settings.get("allowed_domains", ["*"])
+        strict = settings.get("strict_mode", False)
+
+        is_open_to_all = "*" in domains
+        badge = "محمي (محدد)" if not is_open_to_all else "عام (*)"
+        msg = (
+            f"جدار الحماية نشط. الوضع الصارم: {'مفعل' if strict else 'غير مفعل'}، "
+            f"عدد الدومينات المصرح لها: {len(domains)}."
+        )
+        return {
+            "key": "security_engine",
+            "name": "Security & Domain Firewall (جدار حماية الأمان)",
+            "category": "security",
+            "state": "running",
+            "state_text": "يعمل ومفعل (محمي)",
+            "status": "healthy",
+            "badge": badge,
+            "installed": True,
+            "strict_mode": strict,
+            "allowed_domains_count": len(domains),
+            "message": msg,
+            "action_type": "switch_tab_security"
+        }
+    except Exception as e:
+        return {
+            "key": "security_engine",
+            "name": "Security & Domain Firewall (جدار حماية الأمان)",
+            "category": "security",
+            "state": "running",
+            "state_text": "يعمل بالنظام الافتراضي",
+            "status": "healthy",
+            "badge": "افتراضي",
+            "installed": True,
+            "message": f"إعدادات الأمان الافتراضية نشطة ({e}).",
+            "action_type": "switch_tab_security"
+        }
+
+
+_SERVER_START_TIME = time.time()
+
+
+def format_uptime(seconds: int) -> str:
+    """تنسيق وقت تشغيل السيرفر إلى صيغة مقروءة بالأيام والساعات والدقائق."""
+    days = seconds // 86400
+    hours = (seconds % 86400) // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    if days > 0:
+        return f"{days} يوم و {hours} ساعة و {minutes} دقيقة"
+    if hours > 0:
+        return f"{hours} ساعة و {minutes} دقيقة و {secs} ثانية"
+    return f"{minutes} دقيقة و {secs} ثانية"
+
+
+def check_system_resources() -> Dict[str, Any]:
+    """
+    فحص حي لحظي لموارد خادم السيرفر: المعالج (CPU)، الذاكرة (RAM)، التخزين (Disk)، والشبكة (Bandwidth).
+    يدعم psutil بالكامل مع محرك بديل فوري عبر نواة النظام (/proc و shutil).
+    """
+    uptime_sec = int(time.time() - _SERVER_START_TIME)
+
+    cpu_percent = 0.0
+    cores = os.cpu_count() or 1
+    ram_total_mb = 0.0
+    ram_used_mb = 0.0
+    ram_free_mb = 0.0
+    ram_percent = 0.0
+    process_ram_mb = 0.0
+    net_sent_mb = 0.0
+    net_recv_mb = 0.0
+
+    # 1. فحص القرص (shutil مدمجة دائماً في بايثون)
+    try:
+        du = shutil.disk_usage(os.getcwd())
+        disk_total_gb = round(du.total / (1024**3), 2)
+        disk_used_gb = round(du.used / (1024**3), 2)
+        disk_free_gb = round(du.free / (1024**3), 2)
+        disk_percent = round((du.used / du.total) * 100, 1) if du.total > 0 else 0.0
+    except Exception:
+        disk_total_gb = 0.0
+        disk_used_gb = 0.0
+        disk_free_gb = 0.0
+        disk_percent = 0.0
+
+    # 2. فحص CPU والرام عبر psutil
+    try:
+        import psutil
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        vm = psutil.virtual_memory()
+        ram_total_mb = round(vm.total / (1024**2), 1)
+        ram_used_mb = round(vm.used / (1024**2), 1)
+        ram_free_mb = round(vm.available / (1024**2), 1)
+        ram_percent = vm.percent
+
+        proc = psutil.Process(os.getpid())
+        process_ram_mb = round(proc.memory_info().rss / (1024**2), 1)
+
+        net = psutil.net_io_counters()
+        net_sent_mb = round(net.bytes_sent / (1024**2), 2)
+        net_recv_mb = round(net.bytes_recv / (1024**2), 2)
+    except Exception:
+        # المحرك البديل لأنظمة Linux الحاوية (Railway / Docker)
+        if os.path.exists("/proc/meminfo"):
+            try:
+                mem = {}
+                with open("/proc/meminfo", "r") as f:
+                    for line in f:
+                        parts = line.split(":")
+                        if len(parts) == 2:
+                            val = parts[1].strip().split()[0]
+                            mem[parts[0].strip()] = int(val)
+                total_kb = mem.get("MemTotal", 0)
+                free_kb = mem.get("MemAvailable", mem.get("MemFree", 0))
+                used_kb = total_kb - free_kb
+                ram_total_mb = round(total_kb / 1024, 1)
+                ram_used_mb = round(used_kb / 1024, 1)
+                ram_free_mb = round(free_kb / 1024, 1)
+                ram_percent = round((used_kb / total_kb) * 100, 1) if total_kb > 0 else 0.0
+            except Exception:
+                pass
+        if os.path.exists("/proc/net/dev"):
+            try:
+                with open("/proc/net/dev", "r") as f:
+                    lines = f.readlines()
+                total_r = 0
+                total_t = 0
+                for line in lines[2:]:
+                    parts = line.split()
+                    if len(parts) >= 10:
+                        total_r += int(parts[1])
+                        total_t += int(parts[9])
+                net_recv_mb = round(total_r / (1024**2), 2)
+                net_sent_mb = round(total_t / (1024**2), 2)
+            except Exception:
+                pass
+
+    return {
+        "cpu": {
+            "percent": cpu_percent,
+            "cores": cores,
+            "status": "critical" if cpu_percent > 85 else ("warning" if cpu_percent > 65 else "healthy")
+        },
+        "ram": {
+            "total_mb": ram_total_mb,
+            "used_mb": ram_used_mb,
+            "free_mb": ram_free_mb,
+            "percent": ram_percent,
+            "process_mb": process_ram_mb,
+            "status": "critical" if ram_percent > 85 else ("warning" if ram_percent > 70 else "healthy")
+        },
+        "disk": {
+            "total_gb": disk_total_gb,
+            "used_gb": disk_used_gb,
+            "free_gb": disk_free_gb,
+            "percent": disk_percent,
+            "status": "critical" if disk_percent > 90 else ("warning" if disk_percent > 75 else "healthy")
+        },
+        "network": {
+            "sent_mb": net_sent_mb,
+            "recv_mb": net_recv_mb,
+            "status": "healthy"
+        },
+        "uptime": {
+            "seconds": uptime_sec,
+            "formatted": format_uptime(uptime_sec)
+        }
+    }
 
 
 def get_full_monitoring_report() -> Dict[str, Any]:
     """
-    إنشاء تقرير شامل وموحد لمركز مراقبة كافة مكونات النظام
+    إنشاء تقرير شامل وموحد لمركز مراقبة كافة مكونات ومحركات النظام وموارده:
+    (يعمل / يحتاج لتحديث / متوقف أو غير متوفر / تنبيه).
     """
+    resources = check_system_resources()
+
+    # فحص كافة مكونات النظام الـ 10
     cookies_info = check_cookies_component()
+    ytdlp_info = check_ytdlp_health()
     node_info = check_node_health()
     deno_info = check_deno_health()
     ffmpeg_info = check_ffmpeg_health()
-    ytdlp_info = check_ytdlp_health()
     network_info = check_youtube_connectivity()
+    updater_worker_info = check_updater_worker_health()
+    streaming_info = check_streaming_service_health()
+    cloudflare_info = check_cloudflare_worker_health()
+    security_info = check_security_firewall_health()
 
-    components = [
+    components_list = [
+        ytdlp_info,
         cookies_info,
         node_info,
         deno_info,
-        ytdlp_info,
         ffmpeg_info,
-        network_info
+        streaming_info,
+        updater_worker_info,
+        network_info,
+        cloudflare_info,
+        security_info,
     ]
 
-    # تقييم الحالة العامة للنظام
-    criticals = [c for c in components if c["status"] == "critical"]
-    warnings = [c for c in components if c["status"] == "warning"]
+    total_count = len(components_list)
+    running_comps = [c for c in components_list if c.get("state") == "running"]
+    needs_update_comps = [c for c in components_list if c.get("state") == "needs_update"]
+    stopped_comps = [c for c in components_list if c.get("state") == "stopped"]
+    warning_comps = [c for c in components_list if c.get("state") == "warning"]
+
+    # تقييم الحالة العامة
+    criticals = [c for c in components_list if c.get("status") == "critical"]
 
     if criticals:
         overall_status = "critical"
-        overall_msg = f"يوجد {len(criticals)} مكون رئيسي بحاجة لتدخل (مثال: {criticals[0]['name']})."
-        badge = "حرجة 🔴"
-    elif warnings:
+        overall_msg = f"تنبيه حرج: يوجد {len(criticals)} مكون رئيسي متوقف أو بحاجة لتدخل عاجل ({criticals[0]['name']})."
+        badge = "حالة حرجة 🔴"
+    elif needs_update_comps:
+        overall_status = "needs_update"
+        overall_msg = f"يوجد {len(needs_update_comps)} مكون يتوفر له تحديث جديد ({needs_update_comps[0]['name']})."
+        badge = "يتوفر تحديث 🟡"
+    elif warning_comps:
         overall_status = "warning"
-        overall_msg = f"النظام يعمل، مع وجود {len(warnings)} تنبيهات ثانوية."
-        badge = "تنبيه 🟡"
+        overall_msg = f"النظام يعمل بنجاح، مع وجود {len(warning_comps)} إشعار تشغيلي ثانوي."
+        badge = "ملاحظات تشغيلية 🟡"
     else:
         overall_status = "healthy"
         overall_msg = "جميع مكونات ومحركات النظام تعمل بكفاءة تامة 100%!"
-        badge = "ممتازة 🟢"
+        badge = "ممتازة ونشطة 🟢"
+
+    health_percentage = round((len(running_comps) / total_count) * 100) if total_count > 0 else 0
 
     return {
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
         "overall_status": overall_status,
         "overall_message": overall_msg,
         "overall_badge": badge,
+        "summary": {
+            "total": total_count,
+            "running": len(running_comps),
+            "needs_update": len(needs_update_comps),
+            "stopped": len(stopped_comps),
+            "warning": len(warning_comps),
+            "health_percentage": health_percentage
+        },
         "system_info": {
             "python_version": sys.version.split()[0],
             "os_platform": sys.platform,
             "process_id": os.getpid(),
             "working_directory": os.getcwd()
         },
+        "resources": resources,
+        "components_list": components_list,
         "components": {
             "cookies": cookies_info,
+            "ytdlp": ytdlp_info,
             "node": node_info,
             "deno": deno_info,
-            "ytdlp": ytdlp_info,
             "ffmpeg": ffmpeg_info,
-            "network": network_info
+            "network": network_info,
+            "auto_updater": updater_worker_info,
+            "streaming_engine": streaming_info,
+            "cloudflare_worker": cloudflare_info,
+            "security_engine": security_info,
         }
     }

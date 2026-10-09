@@ -1,2128 +1,824 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مركز التحكم السحابي وحماية السيرفر | YouTube Extractor Cloud Hub</title>
-    <meta name="description" content="واجهة تحكم سحابية فائقة التطور لإدارة واستخراج روابط يوتيوب، إدارة الدومينات المصرح لها، كوكيز الدخول، ومراقبة سيرفر Railway و Cloudflare Workers">
+    <title>مركز التحكم السحابي وحماية السيرفر | YouTube API Hub</title>
+    <meta name="description" content="لوحة تحكم متطورة لإدارة استخراج روابط يوتيوب، حماية الدومينات، إدارة الكوكيز، ومراقبة موارد السيرفر الحية">
+
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-base: #060911;
-            --bg-surface: #0b1120;
-            --bg-card: #111a2e;
-            --bg-card-hover: #16223b;
-            --bg-glass: rgba(17, 26, 46, 0.78);
-            --bg-glass-heavy: rgba(11, 17, 32, 0.92);
-            --border-subtle: rgba(255, 255, 255, 0.08);
-            --border-strong: rgba(255, 255, 255, 0.16);
-            --border-focus: #6366f1;
-            
-            --primary: #6366f1;
-            --primary-glow: rgba(99, 102, 241, 0.35);
-            --primary-hover: #4f46e5;
-            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            
-            --accent-cyan: #06b6d4;
-            --accent-cyan-glow: rgba(6, 182, 212, 0.35);
-            --accent-cyan-gradient: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
-            
-            --success: #10b981;
-            --success-glow: rgba(16, 185, 129, 0.25);
-            --warning: #f59e0b;
-            --warning-glow: rgba(245, 158, 11, 0.25);
-            --danger: #ef4444;
-            --danger-glow: rgba(239, 68, 68, 0.25);
-            
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --text-subtle: #64748b;
-            
-            --radius-sm: 8px;
-            --radius-md: 14px;
-            --radius-lg: 20px;
-            --radius-full: 9999px;
-            
-            --font-arabic: 'Cairo', system-ui, sans-serif;
-            --font-english: 'Inter', system-ui, sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
-            
-            --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.25);
-            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4);
-            --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.6);
-            --shadow-glow: 0 0 30px var(--primary-glow);
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            background-color: var(--bg-base);
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.12) 0px, transparent 50%),
-                radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
-                radial-gradient(at 80% 50%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
-            background-attachment: fixed;
-            color: var(--text-main);
-            font-family: var(--font-arabic);
-            min-height: 100vh;
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--bg-base);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #25334d;
-            border-radius: var(--radius-full);
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #374b70;
-        }
-
-        .container {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 24px 20px 80px;
-        }
-
-        /* ===================== AUTH LOCK SCREEN OVERLAY ===================== */
-        #authLockOverlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(6, 9, 17, 0.95);
-            backdrop-filter: blur(28px);
-            -webkit-backdrop-filter: blur(28px);
-            z-index: 10000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            transition: opacity 0.4s ease, visibility 0.4s ease;
-        }
-
-        #authLockOverlay.unlocked {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-
-        .auth-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-strong);
-            border-radius: var(--radius-lg);
-            padding: 40px 36px;
-            width: 100%;
-            max-width: 440px;
-            text-align: center;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(99, 102, 241, 0.2);
-            position: relative;
-            overflow: hidden;
-            animation: authPopIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        @keyframes authPopIn {
-            0% { transform: scale(0.92); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        .auth-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--primary-gradient);
-        }
-
-        .auth-icon-wrap {
-            width: 76px;
-            height: 76px;
-            margin: 0 auto 20px;
-            border-radius: var(--radius-full);
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.15));
-            border: 1px solid rgba(99, 102, 241, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 30px rgba(99, 102, 241, 0.35);
-        }
-
-        .auth-icon-wrap svg {
-            width: 38px;
-            height: 38px;
-            fill: none;
-            stroke: var(--accent-cyan);
-            stroke-width: 2;
-        }
-
-        .auth-title {
-            font-size: 1.45rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-            background: linear-gradient(135deg, #ffffff 40%, #94a3b8 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .auth-subtitle {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin-bottom: 28px;
-        }
-
-        .auth-input-group {
-            position: relative;
-            margin-bottom: 20px;
-        }
-
-        .auth-input {
-            width: 100%;
-            padding: 14px 44px 14px 18px;
-            background: var(--bg-card);
-            border: 1.5px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            color: #ffffff;
-            font-family: var(--font-english);
-            font-size: 1rem;
-            direction: ltr;
-            text-align: center;
-            letter-spacing: 2px;
-            transition: all 0.25s ease;
-        }
-
-        .auth-input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-glow);
-            background: #141e33;
-        }
-
-        .auth-toggle-pwd {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            left: 14px;
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 4px;
-            display: flex;
-            align-items: center;
-        }
-
-        .auth-toggle-pwd:hover {
-            color: var(--text-main);
-        }
-
-        .btn-auth-submit {
-            width: 100%;
-            padding: 14px;
-            background: var(--primary-gradient);
-            border: none;
-            border-radius: var(--radius-md);
-            color: #ffffff;
-            font-family: var(--font-arabic);
-            font-size: 1rem;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: all 0.3s ease;
-            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
-        }
-
-        .btn-auth-submit:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 30px rgba(99, 102, 241, 0.55);
-        }
-
-        .btn-auth-submit:active {
-            transform: translateY(0);
-        }
-
-        .auth-error-msg {
-            color: var(--danger);
-            font-size: 0.85rem;
-            margin-top: 14px;
-            min-height: 22px;
-            font-weight: 600;
-        }
-
-        /* ===================== HEADER ===================== */
-        header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 20px;
-            padding: 18px 26px;
-            background: var(--bg-glass);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
-            margin-bottom: 24px;
-            box-shadow: var(--shadow-md);
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .brand-logo-glow {
-            width: 50px;
-            height: 50px;
-            border-radius: var(--radius-md);
-            background: var(--primary-gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 24px var(--primary-glow);
-        }
-
-        .brand-logo-glow svg {
-            width: 28px;
-            height: 28px;
-            fill: none;
-            stroke: #ffffff;
-            stroke-width: 2;
-        }
-
-        .brand-text h1 {
-            font-size: 1.25rem;
-            font-weight: 900;
-            letter-spacing: -0.3px;
-            background: linear-gradient(135deg, #ffffff 40%, #06b6d4 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .brand-text p {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .status-dot-pulse {
-            width: 9px;
-            height: 9px;
-            border-radius: 50%;
-            background: var(--success);
-            box-shadow: 0 0 12px var(--success);
-            display: inline-block;
-            animation: pulseDot 2s infinite;
-        }
-
-        @keyframes pulseDot {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.35); opacity: 0.6; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .btn-header {
-            padding: 9px 16px;
-            border-radius: var(--radius-full);
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            border: 1px solid var(--border-subtle);
-            background: rgba(255, 255, 255, 0.04);
-            color: var(--text-main);
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.25s ease;
-        }
-
-        .btn-header:hover {
-            background: rgba(255, 255, 255, 0.09);
-            border-color: var(--border-strong);
-            transform: translateY(-1px);
-        }
-
-        .btn-header.danger:hover {
-            background: rgba(239, 68, 68, 0.15);
-            border-color: rgba(239, 68, 68, 0.4);
-            color: #fca5a5;
-        }
-
-        .btn-header.primary {
-            background: var(--primary-gradient);
-            border: none;
-            box-shadow: 0 4px 16px var(--primary-glow);
-        }
-
-        .btn-header.primary:hover {
-            box-shadow: 0 6px 22px rgba(99, 102, 241, 0.5);
-        }
-
-        /* ===================== TAB NAVIGATION BAR ===================== */
-        .tab-bar-wrapper {
-            margin-bottom: 24px;
-            position: sticky;
-            top: 16px;
-            z-index: 100;
-        }
-
-        .tab-bar {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px;
-            background: var(--bg-glass-heavy);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-full);
-            box-shadow: var(--shadow-md);
-            overflow-x: auto;
-            scrollbar-width: none;
-        }
-
-        .tab-bar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .tab-btn {
-            flex: 1;
-            min-width: fit-content;
-            padding: 10px 20px;
-            border-radius: var(--radius-full);
-            border: none;
-            background: transparent;
-            color: var(--text-muted);
-            font-family: var(--font-arabic);
-            font-size: 0.92rem;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            white-space: nowrap;
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .tab-btn:hover {
-            color: var(--text-main);
-            background: rgba(255, 255, 255, 0.04);
-        }
-
-        .tab-btn.active {
-            color: #ffffff;
-            background: var(--primary-gradient);
-            box-shadow: 0 4px 18px var(--primary-glow);
-        }
-
-        .tab-btn svg {
-            width: 18px;
-            height: 18px;
-            stroke-width: 2.2;
-        }
-
-        /* ===================== TAB CONTENT CONTAINER ===================== */
-        .tab-panel {
-            display: none;
-            animation: fadeIn 0.35s ease;
-        }
-
-        .tab-panel.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ===================== CARDS & GRID ===================== */
-        .grid-2 {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            margin-bottom: 24px;
-        }
-
-        .grid-3 {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin-bottom: 24px;
-        }
-
-        .grid-4 {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 18px;
-            margin-bottom: 24px;
-        }
-
-        @media (max-width: 1024px) {
-            .grid-4 { grid-template-columns: repeat(2, 1fr); }
-            .grid-3 { grid-template-columns: 1fr; }
-        }
-
-        @media (max-width: 768px) {
-            .grid-2, .grid-4 { grid-template-columns: 1fr; }
-            header { flex-direction: column; align-items: flex-start; }
-            .header-actions { width: 100%; justify-content: space-between; }
-        }
-
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
-            padding: 24px;
-            box-shadow: var(--shadow-sm);
-            transition: border-color 0.25s ease, box-shadow 0.25s ease;
-            position: relative;
-        }
-
-        .card:hover {
-            border-color: var(--border-strong);
-            box-shadow: var(--shadow-md);
-        }
-
-        .card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 18px;
-        }
-
-        .card-title {
-            font-size: 1.05rem;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .card-title svg {
-            width: 22px;
-            height: 22px;
-            color: var(--accent-cyan);
-        }
-
-        /* Stat Widget */
-        .stat-card {
-            padding: 20px;
-            border-radius: var(--radius-md);
-            background: linear-gradient(135deg, rgba(17, 26, 46, 0.9), rgba(22, 34, 59, 0.7));
-            border: 1px solid var(--border-subtle);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .stat-icon {
-            width: 52px;
-            height: 52px;
-            border-radius: var(--radius-md);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .stat-icon.indigo { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
-        .stat-icon.cyan { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
-        .stat-icon.emerald { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-        .stat-icon.amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-
-        .stat-icon svg { width: 26px; height: 26px; stroke-width: 2; }
-
-        .stat-info { flex: 1; }
-        .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; font-weight: 600; }
-        .stat-value { font-size: 1.25rem; font-weight: 800; font-family: var(--font-english); }
-
-        /* ===================== FORM ELEMENTS ===================== */
-        .form-group {
-            margin-bottom: 18px;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: var(--text-main);
-            margin-bottom: 8px;
-        }
-
-        .form-hint {
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            margin-top: 6px;
-        }
-
-        .input-text, .input-textarea {
-            width: 100%;
-            background: var(--bg-surface);
-            border: 1.5px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            padding: 12px 16px;
-            color: #ffffff;
-            font-size: 0.95rem;
-            transition: all 0.25s ease;
-            font-family: inherit;
-        }
-
-        .input-text:focus, .input-textarea:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-glow);
-            background: #0f182c;
-        }
-
-        .input-textarea {
-            resize: vertical;
-            min-height: 140px;
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            line-height: 1.5;
-            direction: ltr;
-        }
-
-        /* Toggle Switch */
-        .switch-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px 18px;
-            background: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            margin-bottom: 16px;
-        }
-
-        .switch-label-wrap {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .switch-title { font-weight: 700; font-size: 0.95rem; }
-        .switch-desc { font-size: 0.8rem; color: var(--text-muted); }
-
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 52px;
-            height: 28px;
-            flex-shrink: 0;
-        }
-
-        .switch input { opacity: 0; width: 0; height: 0; }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            inset: 0;
-            background-color: #334155;
-            transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            border-radius: 34px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 20px;
-            width: 20px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            border-radius: 50%;
-        }
-
-        input:checked + .slider {
-            background: var(--primary-gradient);
-            box-shadow: 0 0 16px var(--primary-glow);
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(24px);
-        }
-
-        /* Buttons */
-        .btn-primary {
-            background: var(--primary-gradient);
-            border: none;
-            padding: 12px 24px;
-            border-radius: var(--radius-md);
-            color: #ffffff;
-            font-family: var(--font-arabic);
-            font-weight: 700;
-            font-size: 0.92rem;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            box-shadow: 0 6px 20px var(--primary-glow);
-            transition: all 0.25s ease;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 28px rgba(99, 102, 241, 0.5);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-subtle);
-            padding: 10px 18px;
-            border-radius: var(--radius-md);
-            color: var(--text-main);
-            font-weight: 600;
-            font-size: 0.88rem;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s ease;
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: var(--border-strong);
-        }
-
-        .btn-danger {
-            background: rgba(239, 68, 68, 0.15);
-            border: 1px solid rgba(239, 68, 68, 0.35);
-            padding: 10px 18px;
-            border-radius: var(--radius-md);
-            color: #fca5a5;
-            font-weight: 600;
-            font-size: 0.88rem;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s ease;
-        }
-
-        .btn-danger:hover {
-            background: rgba(239, 68, 68, 0.25);
-            border-color: rgba(239, 68, 68, 0.5);
-        }
-
-        /* Domain Chips List */
-        .domain-chips-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 14px;
-            padding: 14px;
-            background: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            min-height: 60px;
-            align-items: center;
-        }
-
-        .domain-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 14px;
-            background: var(--bg-card);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            border-radius: var(--radius-full);
-            font-family: var(--font-english);
-            font-size: 0.85rem;
-            color: #c7d2fe;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            animation: popChip 0.25s ease;
-        }
-
-        @keyframes popChip {
-            from { transform: scale(0.8); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-
-        .domain-chip.wildcard {
-            border-color: rgba(245, 158, 11, 0.4);
-            color: #fde68a;
-            background: rgba(245, 158, 11, 0.1);
-        }
-
-        .domain-chip .btn-remove-chip {
-            background: none;
-            border: none;
-            color: #94a3b8;
-            cursor: pointer;
-            font-size: 1rem;
-            line-height: 1;
-            padding: 0 2px;
-            transition: color 0.2s;
-        }
-
-        .domain-chip .btn-remove-chip:hover {
-            color: var(--danger);
-        }
-
-        /* Key Copy Box */
-        .key-copy-box {
-            display: flex;
-            align-items: center;
-            background: var(--bg-surface);
-            border: 1.5px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            overflow: hidden;
-            font-family: var(--font-mono);
-            direction: ltr;
-        }
-
-        .key-copy-box input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            padding: 12px 16px;
-            color: var(--accent-cyan);
-            font-size: 0.9rem;
-            outline: none;
-        }
-
-        .key-copy-box button {
-            background: rgba(255, 255, 255, 0.06);
-            border: none;
-            border-left: 1px solid var(--border-subtle);
-            padding: 12px 18px;
-            color: var(--text-main);
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85rem;
-            transition: background 0.2s;
-            font-family: var(--font-arabic);
-        }
-
-        .key-copy-box button:hover {
-            background: rgba(255, 255, 255, 0.12);
-        }
-
-        /* ===================== VIDEO EXTRACTOR UI ===================== */
-        .extractor-bar {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .extractor-bar input {
-            flex: 1;
-            direction: ltr;
-        }
-
-        .quick-presets {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 24px;
-        }
-
-        .preset-badge {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--border-subtle);
-            padding: 5px 12px;
-            border-radius: var(--radius-full);
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .preset-badge:hover {
-            background: rgba(99, 102, 241, 0.15);
-            border-color: rgba(99, 102, 241, 0.4);
-            color: #c7d2fe;
-        }
-
-        .video-card-preview {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
-            padding: 20px;
-            margin-bottom: 24px;
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .video-poster {
-            width: 260px;
-            height: 146px;
-            border-radius: var(--radius-md);
-            object-fit: cover;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .video-meta-col {
-            flex: 1;
-            min-width: 260px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .video-title-text {
-            font-size: 1.15rem;
-            font-weight: 800;
-            line-height: 1.4;
-        }
-
-        .video-badges-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 4px;
-        }
-
-        .meta-badge {
-            font-size: 0.78rem;
-            padding: 3px 10px;
-            border-radius: var(--radius-full);
-            font-weight: 700;
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-muted);
-            border: 1px solid var(--border-subtle);
-        }
-
-        .meta-badge.strategy {
-            background: rgba(16, 185, 129, 0.12);
-            color: #34d399;
-            border-color: rgba(16, 185, 129, 0.3);
-            font-family: var(--font-mono);
-        }
-
-        /* Stream Tables */
-        .table-responsive {
-            width: 100%;
-            overflow-x: auto;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-subtle);
-            margin-bottom: 20px;
-            background: var(--bg-surface);
-        }
-
-        table.stream-table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: right;
-            font-size: 0.88rem;
-        }
-
-        table.stream-table th {
-            background: rgba(255, 255, 255, 0.03);
-            padding: 12px 16px;
-            font-weight: 700;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border-subtle);
-        }
-
-        table.stream-table td {
-            padding: 12px 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            color: var(--text-main);
-        }
-
-        table.stream-table tr:hover td {
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        .quality-pill {
-            padding: 3px 10px;
-            border-radius: var(--radius-full);
-            font-weight: 800;
-            font-size: 0.78rem;
-            display: inline-block;
-            font-family: var(--font-english);
-        }
-
-        .quality-pill.hd { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); }
-        .quality-pill.sd { background: rgba(6, 182, 212, 0.2); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.4); }
-        .quality-pill.audio { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); }
-
-        /* ===================== LOGS TERMINAL ===================== */
-        .terminal-box {
-            background: #020617;
-            border: 1px solid #1e293b;
-            border-radius: var(--radius-md);
-            overflow: hidden;
-            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.7);
-        }
-
-        .terminal-topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 16px;
-            background: #090e1a;
-            border-bottom: 1px solid #1e293b;
-        }
-
-        .terminal-dots {
-            display: flex;
-            gap: 6px;
-        }
-
-        .terminal-dot {
-            width: 11px;
-            height: 11px;
-            border-radius: 50%;
-        }
-        .terminal-dot.r { background: #ef4444; }
-        .terminal-dot.y { background: #f59e0b; }
-        .terminal-dot.g { background: #10b981; }
-
-        .terminal-content {
-            padding: 16px;
-            max-height: 480px;
-            overflow-y: auto;
-            font-family: var(--font-mono);
-            font-size: 0.82rem;
-            line-height: 1.6;
-            direction: ltr;
-            text-align: left;
-            color: #cbd5e1;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-
-        .log-entry { margin-bottom: 4px; }
-        .log-entry.INFO { color: #94a3b8; }
-        .log-entry.WARNING { color: #facc15; }
-        .log-entry.ERROR { color: #f87171; font-weight: bold; }
-
-        /* ===================== TOAST NOTIFICATIONS ===================== */
-        #toastContainer {
-            position: fixed;
-            bottom: 24px;
-            left: 24px;
-            z-index: 99999;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .toast {
-            background: var(--bg-card);
-            border: 1px solid var(--border-strong);
-            padding: 14px 20px;
-            border-radius: var(--radius-md);
-            color: #ffffff;
-            font-size: 0.9rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: var(--shadow-lg);
-            animation: slideInToast 0.3s ease;
-        }
-
-        @keyframes slideInToast {
-            from { transform: translateX(-100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        .toast.success { border-color: rgba(16, 185, 129, 0.4); background: #064e3b; }
-        .toast.error { border-color: rgba(239, 68, 68, 0.4); background: #7f1d1d; }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Modular CSS Styles -->
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+    <link rel="stylesheet" href="/static/css/charts.css">
 </head>
 <body>
 
-    <!-- ==================== SECURITY LOCK SCREEN OVERLAY ==================== -->
-    <div id="authLockOverlay">
-        <div class="auth-card">
-            <div class="auth-icon-wrap">
-                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            </div>
-            <h2 class="auth-title">بوابة أمان السيرفر</h2>
-            <p class="auth-subtitle">لوحة التحكم محمية. يرجى إدخال كلمة مرور الإدارة لفتح القفل والوصول للإعدادات.</p>
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
 
-            <form id="authLoginForm" onsubmit="handleAdminLogin(event)">
-                <div class="auth-input-group">
-                    <input type="password" id="adminPasswordInput" class="auth-input" placeholder="••••••••••••" autofocus required>
-                    <button type="button" class="auth-toggle-pwd" onclick="togglePasswordVisibility('adminPasswordInput', this)">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    </button>
-                </div>
-                <button type="submit" id="loginBtn" class="btn-auth-submit">
-                    <span>فتح لوحة التحكم</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                </button>
-                <div id="authErrorMsg" class="auth-error-msg"></div>
-            </form>
-        </div>
-    </div>
+    <!-- MAIN APP CONTAINER -->
+    <div class="app-container">
 
-    <!-- ==================== MAIN DASHBOARD CONTAINER ==================== -->
-    <div class="container">
-        
-        <!-- HEADER -->
-        <header>
-            <div class="brand">
-                <div class="brand-logo-glow">
-                    <svg viewBox="0 0 24 24"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
+        <!-- ==================== SIDEBAR ==================== -->
+        <aside class="sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <div class="brand-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
                 </div>
-                <div class="brand-text">
-                    <h1>مركز التحكم السحابي | YouTube API Hub</h1>
-                    <p>
-                        <span class="status-dot-pulse"></span>
-                        <span id="serverHealthBadge">السيرفر متصل ويعمل بكفاءة</span>
-                        <span>•</span>
-                        <span id="ytVersionBadge" style="font-family: var(--font-english); font-weight: bold;">yt-dlp v...</span>
-                    </p>
+                <div class="brand-info">
+                    <div class="brand-title">YouTube API Hub</div>
+                    <div class="brand-subtitle">
+                        <span class="status-indicator-dot"></span>
+                        <span>سيرفر سحابي متصل</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="header-actions">
-                <button class="btn-header" onclick="runDiagnosticProbe()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                    <span>فحص تشخيصي حي</span>
-                </button>
-                <button class="btn-header danger" onclick="handleAdminLogout()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                    <span>قفل اللوحة</span>
-                </button>
-            </div>
-        </header>
+            <nav class="sidebar-nav">
+                <div class="nav-category">المراقبة والتشخيص</div>
 
-        <!-- FLOATING TAB BAR -->
-        <div class="tab-bar-wrapper">
-            <nav class="tab-bar">
-                <button class="tab-btn active" onclick="switchTab('tab-overview', this)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                    <span>نظرة عامة والمراقبة</span>
+                <button class="nav-item active" onclick="switchNavTab('tab-overview', 'نظرة عامة والتشخيص السحابي', this)">
+                    <div class="nav-item-content">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                        <span>نظرة عامة والتشخيص</span>
+                    </div>
                 </button>
-                <button class="tab-btn" onclick="switchTab('tab-security', this)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                    <span>الأمان والدومينات المصرح لها</span>
+
+                <button class="nav-item" onclick="switchNavTab('tab-resources', 'مراقبة موارد السيرفر الحية (CPU & RAM Charts)', this)">
+                    <div class="nav-item-content">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                        <span>موارد السيرفر (CPU/RAM)</span>
+                    </div>
+                    <span class="nav-badge pulse" id="sideCpuBadge">Live</span>
                 </button>
-                <button class="tab-btn" onclick="switchTab('tab-extractor', this)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                    <span>مستخرج الروابط الذكي</span>
+
+                <button class="nav-item" onclick="switchNavTab('tab-components', 'فحص مكونات ومحركات النظام', this)">
+                    <div class="nav-item-content">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        <span>محركات النظام</span>
+                    </div>
+                    <span class="nav-badge" id="sideCompBadge">8 فواحص</span>
                 </button>
-                <button class="tab-btn" onclick="switchTab('tab-cookies', this)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><circle cx="8" cy="9" r="1.5"></circle><circle cx="15" cy="11" r="1.5"></circle><circle cx="11" cy="16" r="1.5"></circle></svg>
-                    <span>إدارة الكوكيز</span>
+
+                <div class="nav-category">الأمان والدومينات</div>
+
+                <button class="nav-item" onclick="switchNavTab('tab-security', 'الأمان وحماية الدومينات ومفتاح API', this)">
+                    <div class="nav-item-content">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        <span>الأمان وحماية الدومينات</span>
+                    </div>
+                    <span class="nav-badge" id="domainCountBadge">*</span>
                 </button>
-                <button class="tab-btn" onclick="switchTab('tab-proxies', this)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                    <span>بروكسي الحافة (Cloudflare)</span>
+
+                <button class="nav-item" onclick="switchNavTab('tab-cookies', 'إدارة كوكيز يوتيوب وصلاحية الجلسة', this)">
+                    <div class="nav-item-content">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="8" cy="9" r="1.5"></circle><circle cx="15" cy="11" r="1.5"></circle><circle cx="11" cy="16" r="1.5"></circle></svg>
+                        <span>إدارة الكوكيز والصلاحية</span>
+                    </div>
+                    <span class="nav-badge" id="sideCookieBadge">0 كوكي</span>
                 </button>
-                <button class="tab-btn" onclick="switchTab('tab-logs', this)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-                    <span>سجل العمليات المباشر</span>
+
+                <div class="nav-category">أدوات البث والعمليات</div>
+
+                <button class="nav-item" onclick="switchNavTab('tab-extractor', 'مستخرج الروابط الذكي والبث المقسم', this)">
+                    <div class="nav-item-content">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        <span>مستخرج الروابط الذكي</span>
+                    </div>
+                </button>
+
+                <button class="nav-item" onclick="switchNavTab('tab-worker', 'بروكسي الحافة (Cloudflare Workers)', this)">
+                    <div class="nav-item-content">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
+                        <span>بروكسي الحافة (Cloudflare)</span>
+                    </div>
+                </button>
+
+                <button class="nav-item" onclick="switchNavTab('tab-logs', 'سجل العمليات المباشر الحي (Live Console)', this)">
+                    <div class="nav-item-content">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                        <span>سجل العمليات المباشر</span>
+                    </div>
                 </button>
             </nav>
-        </div>
 
-        <!-- ==================== TAB 1: OVERVIEW & HEALTH ==================== -->
-        <div id="tab-overview" class="tab-panel active">
-            <div class="grid-4">
-                <div class="stat-card">
-                    <div class="stat-icon indigo">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-label">محرك JavaScript (Deno/Node)</div>
-                        <div id="statJsRuntime" class="stat-value" style="font-size: 1rem; color: #a5b4fc;">فحص...</div>
-                    </div>
+            <div class="sidebar-footer">
+                <div class="footer-system-info">
+                    <span>إصدار yt-dlp:</span>
+                    <strong id="sideYtVersion">v2024.12+</strong>
                 </div>
-
-                <div class="stat-card">
-                    <div class="stat-icon cyan">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-label">إصدار yt-dlp النشط</div>
-                        <div id="statYtVersion" class="stat-value" style="color: #67e8f9;">2024.12+</div>
-                    </div>
+                <div class="footer-system-info">
+                    <span>تشغيل الخادم:</span>
+                    <span id="sideUptimeText">--</span>
                 </div>
-
-                <div class="stat-card">
-                    <div class="stat-icon emerald">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-label">حالة الكوكيز المسجلة</div>
-                        <div id="statCookieState" class="stat-value" style="font-size: 1rem; color: #34d399;">نشطة / Guest</div>
-                    </div>
-                </div>
-
-                <div class="stat-card">
-                    <div class="stat-icon amber">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-label">الدومينات المصرح لها</div>
-                        <div id="statDomainsCount" class="stat-value" style="color: #fbbf24;">* (مفتوح)</div>
-                    </div>
-                </div>
+                <button class="btn-action danger" style="width: 100%; justify-content: center; margin-top: 6px;" onclick="handleLogout()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span>قفل لوحة التحكم</span>
+                </button>
             </div>
+        </aside>
 
-            <!-- Health & Diagnostics Card -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><activity></activity><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                        <span>تقرير الفحص والتشخيص الحي لكافة مكونات النظام</span>
-                    </h3>
-                    <button class="btn-primary" onclick="runDiagnosticProbe()" id="btnProbe">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                        <span>إجراء فحص تشخيصي فوري</span>
+        <!-- ==================== MAIN WRAPPER ==================== -->
+        <main class="main-wrapper">
+
+            <!-- TOPBAR -->
+            <header class="topbar">
+                <div class="topbar-right">
+                    <button class="mobile-menu-btn" onclick="toggleMobileSidebar()" title="القائمة">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                    </button>
+                    <div class="topbar-title-wrap">
+                        <h1 class="topbar-title" id="pageTitleText">نظرة عامة والتشخيص</h1>
+                        <span class="topbar-subtitle">مركز التحكم السحابي وإدارة حماية الاستخراج لليوتيوب</span>
+                    </div>
+                </div>
+
+                <div class="topbar-left">
+                    <span class="server-badge" id="serverHealthBadge">
+                        <span class="status-indicator-dot"></span>
+                        <span>النظام يعمل بنجاح ومستقر</span>
+                    </span>
+
+                    <button class="btn-action cyan" onclick="runDiagnosticProbe()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                        <span>فحص تشخيصي حي</span>
+                    </button>
+
+                    <!-- زر تبديل الثيم الفاتح والداكن -->
+                    <button class="btn-theme-toggle" id="btnThemeToggle" title="تبديل الثيم">
+                        <!-- Dynamic SVG Icon by theme.js -->
                     </button>
                 </div>
+            </header>
 
-                <div id="probeResultBox" style="display: none; padding: 18px; border-radius: var(--radius-md); background: var(--bg-surface); border: 1px solid var(--border-subtle); margin-bottom: 20px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                        <strong id="probeTitle" style="color: #38bdf8;">نتيجة الفحص الأخير</strong>
-                        <span id="probeLatency" class="meta-badge" style="font-family: var(--font-english); font-size: 0.9rem;">240ms</span>
-                    </div>
-                    <p id="probeMsg" style="font-size: 0.9rem; color: var(--text-muted);"></p>
-                </div>
+            <!-- CONTENT BODY -->
+            <div class="content-body">
 
-                <!-- Update yt-dlp Banner -->
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: var(--radius-md); flex-wrap: wrap; gap: 14px;">
-                    <div>
-                        <h4 style="font-size: 1rem; font-weight: 800; margin-bottom: 4px;">ترقية مكتبة yt-dlp السحابية فورياً</h4>
-                        <p style="font-size: 0.85rem; color: var(--text-muted);">يقوم السيرفر بالتحقق من أحدث نسخة على مستودع PyPI والتحديث بنقرة واحدة لتفادي تغييرات يوتيوب.</p>
-                    </div>
-                    <button class="btn-secondary" onclick="triggerUpdateYtDlp()" id="btnUpgradeYt">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        <span>فحص وتثبيت التحديث الآن</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ==================== TAB 2: SECURITY & DOMAIN WHITELIST ==================== -->
-        <div id="tab-security" class="tab-panel">
-            <div class="grid-2">
-                
-                <!-- Whitelist Card -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                            <span>قائمة الدومينات المصرح لها (Domain Whitelist)</span>
-                        </h3>
-                    </div>
+                <!-- ==================== TAB 1: OVERVIEW ==================== -->
+                <section id="tab-overview" class="tab-panel active">
                     
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
-                        يمكنك حصر استدعاء الـ API على موقعك فقط (مثل: <code style="color: #38bdf8;">my-lms-site.com</code>). الطلبات القادمة من دومينات أخرى سيتم حظرها برمز 403 Forbidden.
-                    </p>
-
-                    <!-- Strict Mode Toggle -->
-                    <div class="switch-row">
-                        <div class="switch-label-wrap">
-                            <span class="switch-title">الفحص الصارم للدومينات (Strict Whitelist)</span>
-                            <span class="switch-desc">حظر أي طلب لا ينتمي بدقة للدومينات المدرجة أدناه أو لا يحمل API Key</span>
+                    <!-- 4 MAIN KPI CARDS -->
+                    <div class="grid-4">
+                        <div class="stat-card">
+                            <div class="stat-icon indigo">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-label">محرك Javascript (Deno/Node)</div>
+                                <div id="statJsRuntime" class="stat-value" style="color: var(--accent-cyan);">Deno & Node ✓</div>
+                                <div class="stat-subtext">لفك تشفير وتوقيع الروابط</div>
+                            </div>
                         </div>
-                        <label class="switch">
-                            <input type="checkbox" id="strictModeToggle" onchange="toggleStrictMode(this.checked)">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
 
-                    <!-- Add Domain Form -->
-                    <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-                        <input type="text" id="newDomainInput" class="input-text" placeholder="مثال: my-academy.com أو https://mysite.com" style="direction: ltr; flex: 1;">
-                        <button class="btn-primary" onclick="handleAddDomain()">
-                            <span>إضافة دومين</span>
-                        </button>
-                    </div>
-
-                    <div class="form-label">الدومينات المسموح لها حالياً:</div>
-                    <div id="domainChipsContainer" class="domain-chips-container">
-                        <span style="color: var(--text-muted); font-size: 0.85rem;">جاري تحميل القائمة...</span>
-                    </div>
-                </div>
-
-                <!-- API Key & Credentials Card -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                            <span>مفتاح الربط بالسيرفر (API Secret Key)</span>
-                        </h3>
-                        <button class="btn-secondary" onclick="regenerateApiKey()">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-                            <span>توليد مفتاح جديد</span>
-                        </button>
-                    </div>
-
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px;">
-                        يمكنك استخدام هذا المفتاح لتفويض الطلبات البرمجية المباشرة من موقعك (Laravel) عبر ترويسة <code style="color: #a5b4fc;">X-API-Key</code> لتجاوز قيود الدومينات.
-                    </p>
-
-                    <div class="key-copy-box" style="margin-bottom: 20px;">
-                        <input type="text" id="apiKeyDisplay" readonly value="جاري التحميل...">
-                        <button onclick="copyToClipboard(document.getElementById('apiKeyDisplay').value, 'تم نسخ مفتاح الـ API بنجاح!')">نسخ المفتاح</button>
-                    </div>
-
-                    <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin: 24px 0;">
-
-                    <!-- Change Admin Password Section -->
-                    <div class="card-header" style="margin-bottom: 12px;">
-                        <h3 class="card-title" style="font-size: 0.98rem;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><key></key><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="m21 2-9.6 9.6"></path><path d="m15.5 7.5 3 3L22 7l-3-3"></path></svg>
-                            <span>تغيير كلمة مرور المشرف للوحة التحكم</span>
-                        </h3>
-                    </div>
-
-                    <form onsubmit="handleChangePassword(event)">
-                        <div class="form-group">
-                            <label class="form-label">كلمة المرور الحالية</label>
-                            <input type="password" id="oldPasswordInput" class="input-text" placeholder="••••••••" required>
+                        <div class="stat-card">
+                            <div class="stat-icon cyan">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-label">إصدار yt-dlp النشط</div>
+                                <div id="statYtVersion" class="stat-value" style="color: var(--primary);">2024.12+</div>
+                                <div class="stat-subtext">تحديث تلقائي دوري</div>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">كلمة المرور الجديدة</label>
-                            <input type="password" id="newPasswordInput" class="input-text" placeholder="6 أحرف على الأقل" required minlength="6">
+
+                        <!-- كارت الكوكيز مع إبراز الصلاحية -->
+                        <div class="stat-card">
+                            <div class="stat-icon emerald">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-label">حالة وصلاحية الكوكيز</div>
+                                <div id="statCookieState" class="stat-value" style="color: var(--success);">نشطة ومسجلة</div>
+                                <div id="statCookieSubtext" class="stat-subtext">حساب مسجل الدخول</div>
+                            </div>
                         </div>
-                        <button type="submit" class="btn-primary" style="width: 100%;">
-                            <span>حفظ كلمة المرور الجديدة</span>
-                        </button>
-                    </form>
-                </div>
 
-            </div>
-        </div>
-
-        <!-- ==================== TAB 3: VIDEO EXTRACTOR ==================== -->
-        <div id="tab-extractor" class="tab-panel">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                        <span>مستخرج الروابط الذكي ومعاينة الجودات الحية</span>
-                    </h3>
-                </div>
-
-                <div class="extractor-bar">
-                    <input type="text" id="extractVideoUrl" class="input-text" placeholder="https://www.youtube.com/watch?v=..." value="https://www.youtube.com/watch?v=yoVToz2PKFw">
-                    <button class="btn-primary" onclick="handleExtractVideo()" id="btnExtract">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                        <span>استخراج الروابط فوراً</span>
-                    </button>
-                </div>
-
-                <div class="quick-presets">
-                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700;">روابط سريعة للتجربة:</span>
-                    <span class="preset-badge" onclick="setExtractUrl('https://www.youtube.com/watch?v=yoVToz2PKFw')">كيف تنام أفضل نومة (yoVToz2PKFw)</span>
-                    <span class="preset-badge" onclick="setExtractUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')">Never Gonna Give You Up (dQw4w9WgXcQ)</span>
-                </div>
-
-                <!-- Video Card Preview -->
-                <div id="videoCardPreview" style="display: none;" class="video-card-preview">
-                    <img id="vThumb" src="" alt="Thumbnail" class="video-poster">
-                    <div class="video-meta-col">
-                        <h4 id="vTitle" class="video-title-text"></h4>
-                        <div class="video-badges-row">
-                            <span id="vChannel" class="meta-badge"></span>
-                            <span id="vDuration" class="meta-badge" style="font-family: var(--font-english);"></span>
-                            <span id="vViews" class="meta-badge" style="font-family: var(--font-english);"></span>
-                            <span id="vStrategyBadge" class="meta-badge strategy">Strategy: ...</span>
+                        <div class="stat-card">
+                            <div class="stat-icon amber">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-label">الدومينات المصرح لها</div>
+                                <div id="statDomainsCount" class="stat-value" style="color: var(--warning);">* (مفتوح للجميع)</div>
+                                <div id="statDomainsSubtext" class="stat-subtext">جدار حماية الطلبات</div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Formats Tables Container -->
-                <div id="formatsContainer" style="display: none;">
-                    <h4 style="margin: 20px 0 10px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
-                        <span>1. فيديوهات مدمجة بالصوت (جاهزة للتشغيل المباشر 1080p, 720p, 360p)</span>
-                    </h4>
-                    <div class="table-responsive">
-                        <table class="stream-table" id="tableCombined">
-                            <thead>
-                                <tr>
-                                    <th>الجودة</th>
-                                    <th>الصيغة</th>
-                                    <th>الحجم التقديري</th>
-                                    <th>رابط البث السريع (Cloudflare Proxy)</th>
-                                    <th>رابط يوتيوب المباشر</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-
-                    <h4 style="margin: 20px 0 10px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
-                        <span>2. صوت نقي عالي الدقة (Audio Only)</span>
-                    </h4>
-                    <div class="table-responsive">
-                        <table class="stream-table" id="tableAudio">
-                            <thead>
-                                <tr>
-                                    <th>معدل البت</th>
-                                    <th>الترميز</th>
-                                    <th>الحجم</th>
-                                    <th>رابط البث السريع (Cloudflare Proxy)</th>
-                                    <th>رابط يوتيوب المباشر</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- ==================== TAB 4: COOKIE HUB ==================== -->
-        <div id="tab-cookies" class="tab-panel">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><circle cx="8" cy="9" r="1.5"></circle><circle cx="15" cy="11" r="1.5"></circle><circle cx="11" cy="16" r="1.5"></circle></svg>
-                        <span>مركز إدارة وتحديث كوكيز يوتيوب</span>
-                    </h3>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn-secondary" onclick="testCookiesLive()">فحص الكوكيز الحالية</button>
-                        <button class="btn-danger" onclick="clearCookiesConfirm()">تفريغ الكوكيز (وضع الزائر)</button>
-                    </div>
-                </div>
-
-                <div id="cookieHealthBox" style="padding: 16px; border-radius: var(--radius-md); background: var(--bg-surface); border: 1px solid var(--border-subtle); margin-bottom: 20px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                        <div>
-                            <strong style="color: #38bdf8;">الحالة الحالية للكوكيز على القرص:</strong>
-                            <span id="cookiePathLabel" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted); margin-right: 8px;">/app/cookies.txt</span>
+                    <!-- Quick Resources Bar -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <div class="card-header">
+                            <div class="card-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                <span>نظرة سريعة على موارد السيرفر الحية</span>
+                            </div>
+                            <button class="btn-action" onclick="switchNavTab('tab-resources', 'مراقبة موارد السيرفر الحية (CPU & RAM Charts)')">
+                                <span>عرض الرسوم البيانية الكاملة ←</span>
+                            </button>
                         </div>
-                        <span id="cookieCountBadge" class="meta-badge" style="font-family: var(--font-english);">0 Cookies</span>
+
+                        <div class="mini-telemetry-grid">
+                            <div class="mini-telemetry-card">
+                                <div class="mini-telemetry-icon" style="background:rgba(6,182,212,0.12); color:var(--accent-cyan);">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect></svg>
+                                </div>
+                                <div class="mini-telemetry-info">
+                                    <span class="mini-telemetry-label">استهلاك المعالج (CPU)</span>
+                                    <span class="mini-telemetry-val" id="overviewCpuVal" style="color:var(--accent-cyan);">0%</span>
+                                </div>
+                            </div>
+
+                            <div class="mini-telemetry-card">
+                                <div class="mini-telemetry-icon" style="background:rgba(139,92,246,0.12); color:#8b5cf6;">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 19v-3M10 19v-3M14 19v-3M18 19v-3M6 8V5M10 8V5M14 8V5M18 8V5M4 11h16a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z"></path></svg>
+                                </div>
+                                <div class="mini-telemetry-info">
+                                    <span class="mini-telemetry-label">الذاكرة العشوائية (RAM)</span>
+                                    <span class="mini-telemetry-val" id="overviewRamVal" style="color:#a78bfa;">0%</span>
+                                </div>
+                            </div>
+
+                            <div class="mini-telemetry-card">
+                                <div class="mini-telemetry-icon" style="background:rgba(16,185,129,0.12); color:var(--success);">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                                </div>
+                                <div class="mini-telemetry-info">
+                                    <span class="mini-telemetry-label">مساحة التخزين (Disk)</span>
+                                    <span class="mini-telemetry-val" id="overviewDiskVal" style="color:var(--success);">0%</span>
+                                </div>
+                            </div>
+
+                            <div class="mini-telemetry-card">
+                                <div class="mini-telemetry-icon" style="background:rgba(245,158,11,0.12); color:var(--warning);">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                                </div>
+                                <div class="mini-telemetry-info">
+                                    <span class="mini-telemetry-label">وقت تشغيل الخادم (Uptime)</span>
+                                    <span class="mini-telemetry-val" id="overviewUptimeVal" style="font-size:0.88rem; color:var(--warning);">--</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                <div class="form-group">
-                    <label class="form-label">الصق نص الكوكيز الجديد هنا بأي صيغة (Netscape أو JSON من متصفحك):</label>
-                    <textarea id="cookiesTextInput" class="input-textarea" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com TRUE / FALSE 1826071993 SID ...&#10;&#10;أو مصفوفة JSON من إضافة Cookie-Editor"></textarea>
-                    <div class="form-hint">يدعم المحلل الذكي تحويل صيغ JSON تلقائياً لصيغة Netscape الصالحة لـ yt-dlp.</div>
-                </div>
+                    <!-- System Components Health Matrix Summary -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <div class="card-header">
+                            <div class="card-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                                <span>حالة مكونات ومحركات النظام (System Components Health)</span>
+                            </div>
+                            <button class="btn-action primary" onclick="switchNavTab('tab-components', 'فحص مكونات ومحركات النظام')">
+                                <span>مصفوفة المكونات التفصيلية ←</span>
+                            </button>
+                        </div>
 
-                <div style="display: flex; gap: 12px; align-items: center;">
-                    <button class="btn-primary" onclick="handleSaveCookies()" id="btnSaveCookies">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                        <span>حفظ وتفعيل الكوكيز فوراً</span>
-                    </button>
-                    <label style="font-size: 0.85rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                        <input type="checkbox" id="testImmediatelyCheck" checked>
-                        <span>اختبار الكوكيز مباشرة بعد الحفظ</span>
-                    </label>
-                </div>
-            </div>
-        </div>
+                        <div class="mini-telemetry-grid">
+                            <div class="mini-telemetry-card">
+                                <div class="mini-telemetry-info">
+                                    <span class="mini-telemetry-label">كفاءة المنظومة</span>
+                                    <span class="mini-telemetry-val" id="quickCompPercent" style="color:var(--success);">100%</span>
+                                </div>
+                            </div>
+                            <div class="mini-telemetry-card">
+                                <div class="mini-telemetry-info">
+                                    <span class="mini-telemetry-label">مكونات نشطة ومستقرة</span>
+                                    <span class="mini-telemetry-val" id="quickCompRunning" style="color:var(--success);">--</span>
+                                </div>
+                            </div>
+                            <div class="mini-telemetry-card">
+                                <div class="mini-telemetry-info">
+                                    <span class="mini-telemetry-label">تحتاج تحديث</span>
+                                    <span class="mini-telemetry-val" id="quickCompUpdate" style="color:var(--warning);">0</span>
+                                </div>
+                            </div>
+                            <div class="mini-telemetry-card">
+                                <div class="mini-telemetry-info">
+                                    <span class="mini-telemetry-label">متوقفة أو غير مثبتة</span>
+                                    <span class="mini-telemetry-val" id="quickCompStopped" style="color:var(--danger);">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-        <!-- ==================== TAB 5: CLOUDFLARE PROXIES ==================== -->
-        <div id="tab-proxies" class="tab-panel">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                        <span>بروكسيات حافة كلاود فلير (Edge Streaming Workers)</span>
-                    </h3>
-                </div>
-
-                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">
-                    تم ربط نظام موقعك بشبكة Cloudflare Edge لتوزيع تدفق الفيديوهات عشوائياً وتجاوز خنق السرعة مع إلغاء استهلاك الباندويث على هذا السيرفر تماماً.
-                </p>
-
-                <div class="grid-2">
-                    <div style="padding: 20px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
-                        <h4 style="font-size: 1rem; font-weight: 800; color: #38bdf8; margin-bottom: 8px;">ميزة التوزيع العشوائي للأحمال (Load Balancing)</h4>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
-                            إذا تم ضبط أكثر من Worker مفصولين بفواصل في <code style="color: #a5b4fc;">STREAM_PROXY_URL</code>، يقوم النظام بتوزيع كل طالب على Worker مختلف عشوائياً لمضاعفة الحصص اليومية المجانية وتفادي أي ضغط.
+                    <!-- One-Click Auto-Updater Card -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                <span>ترقية وتحديث مكتبة yt-dlp السحابية بنقرة واحدة</span>
+                            </div>
+                        </div>
+                        <p style="color: var(--text-muted); font-size: 0.92rem; margin-bottom: 20px; line-height: 1.6;">
+                            يقوم السيرفر بالتحقق من أحدث نسخة على مستودع PyPi والتحديث فورياً لتفادي أي تغييرات أو تحديثات تجريها يوتيوب دون توقف الخادم.
                         </p>
-                    </div>
-
-                    <div style="padding: 20px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
-                        <h4 style="font-size: 1rem; font-weight: 800; color: #34d399; margin-bottom: 8px;">تقطيع الـ 10MB Chunks و Range Requests</h4>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
-                            الـ Worker يقوم تلقائياً بطلب مقاطع مجزأة 10MB من سيرفرات جوجل، مما يجبر يوتيوب على البث بالسرعة الكاملة دون أي Buffer أو تقطيع مع دعم فوري لتقديم وتأخير الفيديو.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ==================== TAB 6: LIVE LOGS ==================== -->
-        <div id="tab-logs" class="tab-panel">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-                        <span>سجل العمليات والأخطاء الحية (Real-time Console)</span>
-                    </h3>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn-secondary" onclick="loadLogs()">تحديث الآن</button>
-                        <button class="btn-danger" onclick="handleClearLogs()">مسح السجل</button>
-                    </div>
-                </div>
-
-                <div class="terminal-box">
-                    <div class="terminal-topbar">
-                        <div class="terminal-dots">
-                            <span class="terminal-dot r"></span>
-                            <span class="terminal-dot y"></span>
-                            <span class="terminal-dot g"></span>
+                        <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+                            <button id="btnCheckUpdate" class="btn-action primary" onclick="handleTriggerUpdate()">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                <span>فحص وتثبيت التحديث الآن</span>
+                            </button>
+                            <span id="updateStatusText" style="color: var(--text-muted); font-size: 0.88rem;"></span>
                         </div>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <label style="font-size: 0.78rem; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
-                                <input type="checkbox" id="autoRefreshLogsCheck" checked>
-                                <span>تحديث تلقائي (3 ثوانٍ)</span>
+                    </div>
+                </section>
+
+                <!-- ==================== TAB 2: LIVE TELEMETRY CHARTS ==================== -->
+                <section id="tab-resources" class="tab-panel">
+                    
+                    <div class="card" style="margin-bottom: 24px;">
+                        <div class="card-header">
+                            <div class="card-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                <span>مركز مراقبة موارد الخادم والرسوم البيانية الحية (Server Live Telemetry Charts)</span>
+                            </div>
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;">
+                                    <input type="checkbox" id="autoRefreshResources" checked onchange="toggleResourceAutoRefresh(this.checked)">
+                                    <span>تحديث تلقائي كل 4 ثوانٍ</span>
+                                </label>
+                                <button class="btn-action" onclick="fetchServerResources(true)">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                                    <span>تحديث الآن</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 2 DYNAMIC CANVAS CHARTS (CPU & RAM) -->
+                        <div class="telemetry-grid">
+                            <!-- CPU Chart Card -->
+                            <div class="telemetry-card">
+                                <div class="telemetry-header">
+                                    <div class="telemetry-title-group">
+                                        <div class="telemetry-icon cpu">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+                                        </div>
+                                        <div>
+                                            <div class="telemetry-title">استهلاك المعالج الحي (CPU History)</div>
+                                            <div class="telemetry-subtitle">مخطط زمني لحظي لنشاط المعالج</div>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                                        <span class="telemetry-current-val cpu" id="cpuPercentVal">0%</span>
+                                        <span class="comp-badge healthy" id="cpuBadge">طبيعي</span>
+                                    </div>
+                                </div>
+
+                                <div class="chart-canvas-wrap">
+                                    <canvas id="cpuChartCanvas"></canvas>
+                                </div>
+
+                                <div class="res-progress-wrap">
+                                    <div class="res-progress-fill cyan" id="cpuBarFill" style="width: 0%;"></div>
+                                </div>
+
+                                <div class="telemetry-meta-row" style="margin-top: 14px;">
+                                    <span class="telemetry-meta-item">عدد الأنوية المتاحة: <strong id="cpuCoresVal">1</strong> Cores</span>
+                                    <span class="telemetry-meta-item" style="color:var(--accent-cyan);">معدل الاستجابة فوري</span>
+                                </div>
+                            </div>
+
+                            <!-- RAM Chart Card -->
+                            <div class="telemetry-card">
+                                <div class="telemetry-header">
+                                    <div class="telemetry-title-group">
+                                        <div class="telemetry-icon ram">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 19v-3M10 19v-3M14 19v-3M18 19v-3M6 8V5M10 8V5M14 8V5M18 8V5M4 11h16a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z"></path></svg>
+                                        </div>
+                                        <div>
+                                            <div class="telemetry-title">الذاكرة العشوائية الحية (RAM Memory)</div>
+                                            <div class="telemetry-subtitle">مخطط زمني لاستهلاك الذاكرة</div>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                                        <span class="telemetry-current-val ram" id="ramPercentVal">0%</span>
+                                        <span class="comp-badge healthy" id="ramBadge">طبيعي</span>
+                                    </div>
+                                </div>
+
+                                <div class="chart-canvas-wrap">
+                                    <canvas id="ramChartCanvas"></canvas>
+                                </div>
+
+                                <div class="res-progress-wrap">
+                                    <div class="res-progress-fill purple" id="ramBarFill" style="width: 0%;"></div>
+                                </div>
+
+                                <div class="telemetry-meta-row" style="margin-top: 14px;">
+                                    <span class="telemetry-meta-item">المستخدم: <strong id="ramUsedVal">0 MB</strong> / <strong id="ramTotalVal">0 MB</strong></span>
+                                    <span class="telemetry-meta-item">ذاكرة التطبيق: <strong id="ramProcessVal">0 MB</strong></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Disk & Network Grid -->
+                        <div class="grid-2">
+                            <!-- Disk Storage Card -->
+                            <div class="card" style="background:var(--bg-card-hover);">
+                                <div class="card-header">
+                                    <div class="card-header-title">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                                        <span>مساحة التخزين والقرص (Disk Storage)</span>
+                                    </div>
+                                    <span class="telemetry-current-val" id="diskPercentVal" style="font-size:1.3rem; color:var(--success);">0%</span>
+                                </div>
+                                <div class="res-progress-wrap">
+                                    <div class="res-progress-fill emerald" id="diskBarFill" style="width: 0%;"></div>
+                                </div>
+                                <div class="telemetry-meta-row" style="margin-top: 14px;">
+                                    <span>المستخدم: <strong id="diskUsedVal">0 GB</strong> / <strong id="diskTotalVal">0 GB</strong></span>
+                                    <span>المتبقي: <strong id="diskFreeVal">0 GB</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- Network & Uptime Card -->
+                            <div class="card" style="background:var(--bg-card-hover);">
+                                <div class="card-header">
+                                    <div class="card-header-title">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                                        <span>نشاط الشبكة ووقت التشغيل (Network & Uptime)</span>
+                                    </div>
+                                    <span class="comp-badge cyan">نشط</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; margin:10px 0;">
+                                    <div>
+                                        <div style="font-size:0.78rem; color:var(--text-muted);">إرسال البيانات (Sent):</div>
+                                        <strong id="netSentVal" style="font-family:var(--font-mono); color:var(--accent-cyan); font-size:1.1rem;">0 MB</strong>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:0.78rem; color:var(--text-muted);">استقبال البيانات (Recv):</div>
+                                        <strong id="netRecvVal" style="font-family:var(--font-mono); color:#a78bfa; font-size:1.1rem;">0 MB</strong>
+                                    </div>
+                                </div>
+                                <div class="telemetry-meta-row" style="margin-top: 14px;">
+                                    <span>مدة تشغيل السيرفر الحالية:</span>
+                                    <strong id="uptimeVal" style="font-family:var(--font-mono); color:var(--warning);">--</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <!-- ==================== TAB 3: COMPONENTS HEALTH ==================== -->
+                <section id="tab-components" class="tab-panel">
+                    <div class="card" style="margin-bottom: 24px;">
+                        <div class="card-header">
+                            <div class="card-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                                <span>مصفوفة فحص مكونات النظام (System Health Matrix)</span>
+                            </div>
+                            <button class="btn-action cyan" onclick="runDiagnosticProbe()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                                <span>فحص تشخيصي لجميع المحركات</span>
+                            </button>
+                        </div>
+                        <div class="grid-2" id="componentsHealthGrid">
+                            <!-- Populated dynamically by overview.js -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== TAB 4: SECURITY & DOMAIN FIREWALL ==================== -->
+                <section id="tab-security" class="tab-panel">
+                    
+                    <!-- API KEY INTEGRATION CARD (NEW!) -->
+                    <div class="card" style="margin-bottom: 24px; border-color: var(--primary);">
+                        <div class="card-header">
+                            <div class="card-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-2-2l2 2m7 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"></path></svg>
+                                <span>مفتاح المصادقة والربط السحابي (API Key Integration)</span>
+                            </div>
+                            <div style="display:flex; gap:10px;">
+                                <button class="btn-action primary" onclick="copyApiKey()">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    <span>نسخ مفتاح API</span>
+                                </button>
+                                <button class="btn-action" style="color:var(--danger); border-color:rgba(239,68,68,0.3);" onclick="handleRegenerateApiKey()">
+                                    <span>توليد مفتاح جديد</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:14px; line-height:1.6;">
+                            يسمح هذا المفتاح لمنصة Laravel باستخراج الروابط وتخطي جدار الحماية حتى في حال تفعيل الوضع الصارم. ضع هذا المفتاح في ملف <code style="color:var(--accent-cyan); font-family:var(--font-mono);">.env</code> الخاص بمنصة لارافيل:
+                        </p>
+
+                        <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-input); border:1px solid var(--border-card); border-radius:var(--radius-md); padding:12px 18px; margin-bottom:14px;">
+                            <code id="currentApiKeyDisplay" style="font-family:var(--font-mono); font-size:1.05rem; font-weight:700; color:var(--accent-cyan); letter-spacing:0.5px; direction:ltr;">--</code>
+                            <span class="comp-badge healthy">نشط ومعتمد</span>
+                        </div>
+
+                        <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:12px 16px;">
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">الكود المطلوب في ملف لارافيل <code style="color:var(--text-main);">c:\laragon\www\lms\.env</code>:</div>
+                            <code style="display:block; font-family:var(--font-mono); font-size:0.85rem; color:#67e8f9; direction:ltr; text-align:left;">
+                                YTDLP_API_KEY=sec_aab36b5c92f3631d717935b7cfa5da0e
+                            </code>
+                        </div>
+                    </div>
+
+                    <!-- ALLOWED DOMAINS & STRICT MODE -->
+                    <div class="grid-2">
+                        <!-- Domains Whitelist Card -->
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-header-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                                    <span>الدومينات المصرح لها بطلب الاستخراج</span>
+                                </div>
+                            </div>
+
+                            <p style="color:var(--text-muted); font-size:0.86rem; margin-bottom:14px; line-height:1.5;">
+                                أضف أسماء الدومينات المسموح لها باستخراج الروابط (مثل <code style="color:var(--text-main);">lms.myacademy.com</code> أو <code style="color:var(--text-main);">localhost</code>).
+                            </p>
+
+                            <!-- Chips Container -->
+                            <div class="domain-chips-box" id="domainChipsContainer">
+                                <!-- Populated dynamically by security.js -->
+                            </div>
+
+                            <div class="input-inline-wrap">
+                                <input type="text" id="newDomainInput" placeholder="اكتب الدومين هنا (مثال: myplatform.com أو localhost)" onkeydown="if(event.key==='Enter') handleAddDomain()">
+                                <button class="btn-action primary" onclick="handleAddDomain()">
+                                    <span>+ إضافة دومين</span>
+                                </button>
+                            </div>
+
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:16px; padding-top:14px; border-top:1px solid var(--border-subtle);">
+                                <div>
+                                    <div style="font-weight:700; color:var(--text-main); font-size:0.92rem;">الوضع الصارم (Strict Whitelist Mode)</div>
+                                    <div style="font-size:0.78rem; color:var(--text-muted);">حظر أي طلب لا يحتوي ترويسة Origin أو Referer مطابقة تماماً للقائمة.</div>
+                                </div>
+                                <input type="checkbox" id="strictModeToggle" style="width:22px; height:22px; cursor:pointer;" onchange="handleToggleStrict(this.checked)">
+                            </div>
+                        </div>
+
+                        <!-- Live Domain Tester Tool (NEW!) & Change Password -->
+                        <div style="display:flex; flex-direction:column; gap:20px;">
+                            
+                            <!-- Test Domain Tool Card -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-header-title">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                        <span>أداة الفحص التجريبي لتصريح الدومين</span>
+                                    </div>
+                                </div>
+                                <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:12px;">
+                                    اكتب أي رابط أو دومين للتحقق مما إذا كان سيُقبل أم يُحظر فوراً مع معرفة السبب:
+                                </p>
+                                <div class="input-inline-wrap">
+                                    <input type="text" id="testDomainInput" placeholder="مثال: https://lms.myplatform.com" onkeydown="if(event.key==='Enter') handleTestDomain()">
+                                    <button class="btn-action cyan" onclick="handleTestDomain()">
+                                        <span>فحص الدومين</span>
+                                    </button>
+                                </div>
+                                <div id="testDomainResult" style="display:none; margin-top:10px;"></div>
+                            </div>
+
+                            <!-- Change Password Card -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-header-title">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                        <span>تغيير كلمة مرور الإدارة</span>
+                                    </div>
+                                </div>
+                                <form id="changePasswordForm" onsubmit="handleChangePassword(event)">
+                                    <div class="form-group">
+                                        <label class="form-label">كلمة المرور الحالية:</label>
+                                        <input type="password" id="curPasswordInput" class="form-input" required placeholder="كلمة المرور الحالية">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">كلمة المرور الجديدة:</label>
+                                        <input type="password" id="newPasswordInput" class="form-input" required minlength="6" placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">تأكيد كلمة المرور الجديدة:</label>
+                                        <input type="password" id="confirmPasswordInput" class="form-input" required placeholder="أعد كتابة كلمة المرور الجديدة">
+                                    </div>
+                                    <button type="submit" class="btn-action primary" style="width:100%; justify-content:center;">
+                                        <span>حفظ وتحديث كلمة المرور</span>
+                                    </button>
+                                </form>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ==================== TAB 5: COOKIE HUB ==================== -->
+                <section id="tab-cookies" class="tab-panel">
+                    
+                    <!-- NEW COOKIE EXPIRY HERO BANNER & COUNTDOWN -->
+                    <div class="card" id="cookieExpiryHeroCard" style="margin-bottom: 24px; border-color: var(--success); background: linear-gradient(135deg, var(--bg-card) 0%, rgba(16,185,129,0.06) 100%);">
+                        <!-- Populated dynamically by cookies.js -->
+                    </div>
+
+                    <!-- UPDATE COOKIES FORM -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <div class="card-header">
+                            <div class="card-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="8" cy="9" r="1.5"></circle><circle cx="15" cy="11" r="1.5"></circle><circle cx="11" cy="16" r="1.5"></circle></svg>
+                                <span>مركز إدارة وتحديث كوكيز يوتيوب</span>
+                            </div>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <span class="nav-badge pulse" id="cookieCountBadge">0 كوكي</span>
+                                <button class="btn-action" onclick="loadCookieStatus()">فحص الكوكيز الحالية</button>
+                                <button class="btn-action" style="color:#f87171; border-color:rgba(239,68,68,0.3);" onclick="clearCookiesConfirm()">تفريغ الكوكيز (وضع الزائر)</button>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 14px; font-size: 0.88rem; color: var(--text-muted);">
+                            المسار النشط لملف الكوكيز على الخادم: <code id="cookiePathLabel" style="color: var(--accent-cyan); font-family: var(--font-mono);">/app/cookies.txt</code>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">الصق نص الكوكيز الجديد هنا بأي صيغة (Netscape أو JSON من إضافة Cookie-Editor أو Header):</label>
+                            <textarea id="cookiesTextInput" class="form-textarea" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com&#9;TRUE&#9;/&#9;TRUE&#9;1826071993&#9;SID&#9;...&#10;&#10;أو مصفوفة JSON من إضافة Cookie-Editor"></textarea>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                            <label style="display:flex; align-items:center; gap:8px; font-size:0.88rem; color:var(--text-muted); cursor:pointer;">
+                                <input type="checkbox" id="testImmediatelyCheck" checked>
+                                <span>اختبار الكوكيز مباشرة بعد الحفظ بطلب تجريبي حي مع يوتيوب</span>
+                            </label>
+                            <button id="btnSaveCookies" class="btn-action success" onclick="handleSaveCookies()">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <span>حفظ وتفعيل الكوكيز فوراً</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- DETAILED COOKIES TABLE -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                                <span>جدول تفاصيل الكوكيز وصلاحية كل مفتاح</span>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="custom-table">
+                                <thead>
+                                    <tr>
+                                        <th>اسم الكوكي (Key)</th>
+                                        <th>النوع والتصنيف</th>
+                                        <th>النطاق (Domain)</th>
+                                        <th>تاريخ الانتهاء (UTC)</th>
+                                        <th>المدة المتبقية</th>
+                                        <th>الحالة</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cookiesTableBody">
+                                    <!-- Populated dynamically by cookies.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ==================== TAB 6: EXTRACTOR ==================== -->
+                <section id="tab-extractor" class="tab-panel">
+                    <div class="card" style="margin-bottom: 24px;">
+                        <div class="card-header">
+                            <div class="card-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                <span>مستخرج روابط يوتيوب المباشرة الذكي</span>
+                            </div>
+                        </div>
+
+                        <div class="input-inline-wrap">
+                            <input type="text" id="extractUrlInput" placeholder="ضع رابط فيديو يوتيوب هنا (مثال: https://www.youtube.com/watch?v=dQw4w9WgXcQ)" onkeydown="if(event.key==='Enter') handleExtractVideo()">
+                            <button id="btnExtract" class="btn-action cyan" onclick="handleExtractVideo()">
+                                <span>استخراج الروابط فوراً</span>
+                            </button>
+                        </div>
+
+                        <div style="display:flex; gap:16px; align-items:center; margin-bottom:12px; font-size:0.88rem; color:var(--text-muted);">
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                <input type="checkbox" id="proxyStreamsCheck" checked>
+                                <span>تحويل الروابط لروابط بث سريع لفك خنق السرعة (Proxy Streams Chunks)</span>
                             </label>
                         </div>
-                    </div>
-                    <div id="terminalLogContent" class="terminal-content">جاري قراءة السجلات الحية...</div>
-                </div>
-            </div>
-        </div>
 
+                        <div id="extractResultContainer" style="display: none;"></div>
+                    </div>
+                </section>
+
+                <!-- ==================== TAB 7: WORKER & STREAM PROXY ==================== -->
+                <section id="tab-worker" class="tab-panel">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
+                                <span>بروكسي الحافة (Cloudflare Workers) لتسريع بث الفيديو</span>
+                            </div>
+                        </div>
+
+                        <p style="color:var(--text-muted); font-size:0.92rem; line-height:1.7; margin-bottom:18px;">
+                            يقوم البروكسي بتمرير قطع الفيديو (10MB Chunks) مباشرة من خوادم GoogleVideo إلى مشغل الطالب عبر شبكة Cloudflare العالمية، مما يوفر سرعة تحميل قصوى ويمنع خنق السرعة تماماً.
+                        </p>
+
+                        <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:16px;">
+                            <div style="font-weight:700; color:var(--text-main); margin-bottom:8px;">إعداد متغيرات البيئة لربط أكثر من Worker:</div>
+                            <code style="display:block; padding:12px; background:var(--terminal-bg); border-radius:var(--radius-sm); color:#67e8f9; font-family:var(--font-mono); font-size:0.88rem; direction:ltr; text-align:left;">
+                                STREAM_PROXY_URL=https://worker1.yoursub.workers.dev,https://worker2.yoursub.workers.dev
+                            </code>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== TAB 8: LIVE TERMINAL LOGS ==================== -->
+                <section id="tab-logs" class="tab-panel">
+                    <div class="terminal-box">
+                        <div class="terminal-topbar">
+                            <div class="terminal-dots">
+                                <span class="terminal-dot r"></span>
+                                <span class="terminal-dot y"></span>
+                                <span class="terminal-dot g"></span>
+                                <span style="font-size:0.82rem; font-family:var(--font-mono); color:#94a3b8; margin-right:12px;">server-live-console ~ logs</span>
+                            </div>
+
+                            <!-- Filter Pills & Actions -->
+                            <div class="terminal-actions">
+                                <div class="filter-pills">
+                                    <button class="filter-pill active" onclick="setLogLevelFilter('ALL', this)">الكل</button>
+                                    <button class="filter-pill" onclick="setLogLevelFilter('INFO', this)">INFO</button>
+                                    <button class="filter-pill" onclick="setLogLevelFilter('WARNING', this)">WARNING</button>
+                                    <button class="filter-pill" onclick="setLogLevelFilter('ERROR', this)">ERROR</button>
+                                </div>
+
+                                <input type="text" placeholder="بحث في السجل..." style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:var(--radius-sm); color:#fff; padding:4px 10px; font-size:0.78rem; outline:none; width:130px;" oninput="handleLogSearch(this.value)">
+
+                                <button class="btn-action" id="btnCopyLogs" style="padding:5px 12px; font-size:0.78rem;" onclick="copyTerminalLogs()">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    <span>نسخ السجل</span>
+                                </button>
+                                <button class="btn-action" style="padding:5px 12px; font-size:0.78rem; color:#f87171; border-color:rgba(239,68,68,0.3);" onclick="clearTerminalLogs()">
+                                    <span>مسح الشاشة</span>
+                                </button>
+                                <label style="display:flex; align-items:center; gap:6px; font-size:0.78rem; color:#94a3b8; cursor:pointer;">
+                                    <input type="checkbox" id="autoScrollLogs" checked>
+                                    <span>تمرير تلقائي</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="terminal-content" id="terminalOutput">
+                            <div class="log-entry INFO">[SYSTEM] جارٍ تحميل سجل العمليات الحي...</div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== AUTH LOCK OVERLAY ==================== -->
+    <div id="authLockOverlay" class="auth-lock-overlay">
+        <div class="lock-box">
+            <div class="lock-box-icon">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <h2 class="lock-box-title">لوحة التحكم مقفلة</h2>
+            <p class="lock-box-desc">يرجى إدخال كلمة مرور المشرف للدخول إلى مركز التحكم وإدارة الكوكيز والسيرفر.</p>
+            <form onsubmit="handleLoginSubmit(event)">
+                <div class="form-group">
+                    <input type="password" id="adminPasswordInput" class="form-input" style="text-align:center; font-size:1.1rem; letter-spacing:2px;" required placeholder="••••••••" autofocus>
+                </div>
+                <button type="submit" id="btnLoginSubmit" class="btn-action primary" style="width:100%; justify-content:center; padding:12px; font-size:1rem;">
+                    <span>دخول لوحة التحكم</span>
+                </button>
+            </form>
+        </div>
     </div>
 
     <!-- TOAST CONTAINER -->
     <div id="toastContainer"></div>
 
-    <script>
-        // ==================== STATE & AUTH ====================
-        let authToken = localStorage.getItem('yt_hub_token') || '';
-        let logsInterval = null;
-
-        function showToast(msg, type = 'success') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerHTML = `<span>${msg}</span>`;
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(10px)';
-                toast.style.transition = 'all 0.3s ease';
-                setTimeout(() => toast.remove(), 300);
-            }, 3500);
-        }
-
-        function copyToClipboard(text, successMsg = 'تم النسخ بنجاح!') {
-            if (!text) return;
-            navigator.clipboard.writeText(text).then(() => {
-                showToast(successMsg, 'success');
-            }).catch(() => {
-                showToast('تعذر النسخ التلقائي.', 'error');
-            });
-        }
-
-        function togglePasswordVisibility(inputId, btn) {
-            const input = document.getElementById(inputId);
-            if (input.type === 'password') {
-                input.type = 'text';
-                btn.style.color = '#38bdf8';
-            } else {
-                input.type = 'password';
-                btn.style.color = '#94a3b8';
-            }
-        }
-
-        async function apiFetch(endpoint, options = {}) {
-            options.headers = options.headers || {};
-            if (authToken) {
-                options.headers['Authorization'] = `Bearer ${authToken}`;
-            }
-            try {
-                const res = await fetch(endpoint, options);
-                if (res.status === 401) {
-                    // Unauthorized -> show lock screen
-                    lockDashboard();
-                    throw new Error('انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً.');
-                }
-                return res;
-            } catch (err) {
-                throw err;
-            }
-        }
-
-        function lockDashboard() {
-            document.getElementById('authLockOverlay').classList.remove('unlocked');
-            if (logsInterval) clearInterval(logsInterval);
-        }
-
-        function unlockDashboard() {
-            document.getElementById('authLockOverlay').classList.add('unlocked');
-            document.getElementById('authErrorMsg').textContent = '';
-            initDashboardData();
-        }
-
-        async function checkAuthOnStartup() {
-            try {
-                const res = await apiFetch('/api/auth/status');
-                const data = await res.json();
-                if (data.authenticated) {
-                    unlockDashboard();
-                } else {
-                    lockDashboard();
-                }
-            } catch (e) {
-                lockDashboard();
-            }
-        }
-
-        async function handleAdminLogin(e) {
-            e.preventDefault();
-            const pwdInput = document.getElementById('adminPasswordInput');
-            const errorMsg = document.getElementById('authErrorMsg');
-            const submitBtn = document.getElementById('loginBtn');
-            const pwd = pwdInput.value.trim();
-
-            if (!pwd) return;
-
-            errorMsg.textContent = '';
-            submitBtn.disabled = true;
-            submitBtn.style.opacity = '0.7';
-
-            try {
-                const res = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password: pwd })
-                });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    authToken = data.token;
-                    localStorage.setItem('yt_hub_token', authToken);
-                    pwdInput.value = '';
-                    unlockDashboard();
-                    showToast('تم فتح لوحة التحكم بنجاح! أهلاً بك.');
-                } else {
-                    errorMsg.textContent = data.detail || 'كلمة المرور غير صحيحة.';
-                    pwdInput.focus();
-                }
-            } catch (err) {
-                errorMsg.textContent = 'تعذر الاتصال بالسيرفر.';
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1';
-            }
-        }
-
-        async function handleAdminLogout() {
-            try {
-                await apiFetch('/api/auth/logout', { method: 'POST' });
-            } catch (e) { }
-            authToken = '';
-            localStorage.removeItem('yt_hub_token');
-            lockDashboard();
-            showToast('تم قفل اللوحة بنجاح.');
-        }
-
-        // ==================== TABS SWITCHING ====================
-        function switchTab(tabId, btn) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-
-            btn.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
-
-            if (tabId === 'tab-logs') {
-                loadLogs();
-            } else if (tabId === 'tab-security') {
-                loadSecuritySettings();
-            } else if (tabId === 'tab-cookies') {
-                loadCookieStatus();
-            }
-        }
-
-        // ==================== INIT & DASHBOARD DATA ====================
-        async function initDashboardData() {
-            loadSystemInfo();
-            loadSecuritySettings();
-            loadCookieStatus();
-            startLogsWatcher();
-        }
-
-        async function loadSystemInfo() {
-            try {
-                const res = await apiFetch('/api/system/version');
-                const data = await res.json();
-                document.getElementById('statYtVersion').textContent = data.current_version || '2024.12+';
-                document.getElementById('ytVersionBadge').textContent = `yt-dlp v${data.current_version || ''}`;
-
-                const debugRes = await apiFetch('/api/debug');
-                const debugData = await debugRes.json();
-                let jsRuntimes = [];
-                if (debugData.deno_installed) jsRuntimes.push('Deno ✔');
-                if (debugData.node_installed) jsRuntimes.push('Node ✔');
-                document.getElementById('statJsRuntime').textContent = jsRuntimes.join(' & ') || 'None';
-            } catch (e) { }
-        }
-
-        async function runDiagnosticProbe() {
-            const btn = document.getElementById('btnProbe');
-            const box = document.getElementById('probeResultBox');
-            btn.disabled = true;
-            btn.innerHTML = '<span>جاري الفحص...</span>';
-
-            try {
-                const res = await apiFetch('/api/monitor/probe', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' })
-                });
-                const data = await res.json();
-                box.style.display = 'block';
-
-                const probe = data.probe || {};
-                document.getElementById('probeTitle').textContent = probe.success ? '✔ الفحص التشخيصي ناجح' : '❌ فشل الفحص';
-                document.getElementById('probeTitle').style.color = probe.success ? '#34d399' : '#f87171';
-                document.getElementById('probeLatency').textContent = `${probe.elapsed_seconds || 0}s`;
-                document.getElementById('probeMsg').textContent = probe.message || 'تم فحص الاتصال وتوليد الروابط بنجاح.';
-                showToast('تم الفحص التشخيصي بنجاح!', 'success');
-            } catch (err) {
-                showToast('فشل تنفيذ الفحص التشخيصي.', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>إجراء فحص تشخيصي فوري</span>`;
-            }
-        }
-
-        async function triggerUpdateYtDlp() {
-            const btn = document.getElementById('btnUpgradeYt');
-            btn.disabled = true;
-            btn.innerHTML = '<span>جاري التحديث عبر PyPI...</span>';
-
-            try {
-                const res = await apiFetch('/api/system/update?force=true', { method: 'POST' });
-                const data = await res.json();
-                if (data.status === 'success') {
-                    showToast(data.message || 'تم تحديث yt-dlp بنجاح!');
-                    loadSystemInfo();
-                } else {
-                    showToast(data.message || 'تم بالفعل استخدام أحدث إصدار.', 'info');
-                }
-            } catch (e) {
-                showToast('فشل تحديث مكتبة yt-dlp.', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>فحص وتثبيت التحديث الآن</span>`;
-            }
-        }
-
-        // ==================== SECURITY & DOMAIN WHITELIST ====================
-        async function loadSecuritySettings() {
-            try {
-                const res = await apiFetch('/api/security/settings');
-                const data = await res.json();
-
-                document.getElementById('strictModeToggle').checked = Boolean(data.strict_mode);
-                document.getElementById('apiKeyDisplay').value = data.api_key || '';
-
-                const domains = data.allowed_domains || ['*'];
-                const countBadge = document.getElementById('statDomainsCount');
-                if (data.strict_mode) {
-                    countBadge.textContent = `${domains.length} دومين (صارم)`;
-                } else {
-                    countBadge.textContent = domains.includes('*') ? '* (مفتوح للجميع)' : `${domains.length} دومين`;
-                }
-
-                renderDomainChips(domains);
-            } catch (e) { }
-        }
-
-        function renderDomainChips(domains) {
-            const container = document.getElementById('domainChipsContainer');
-            container.innerHTML = '';
-
-            if (!domains || domains.length === 0) {
-                container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">لا توجد دومينات مضافة. سيتم حظر جميع الطلبات في الوضع الصارم!</span>';
-                return;
-            }
-
-            domains.forEach(d => {
-                const chip = document.createElement('div');
-                chip.className = `domain-chip ${d === '*' ? 'wildcard' : ''}`;
-                chip.innerHTML = `
-                    <span>${d === '*' ? '★ * (الجميع مسموح)' : d}</span>
-                    <button class="btn-remove-chip" onclick="handleRemoveDomain('${d}')" title="حذف">&times;</button>
-                `;
-                container.appendChild(chip);
-            });
-        }
-
-        async function handleAddDomain() {
-            const input = document.getElementById('newDomainInput');
-            const domain = input.value.trim();
-            if (!domain) return;
-
-            try {
-                const res = await apiFetch('/api/security/domains/add', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ domain: domain })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    showToast(data.message);
-                    input.value = '';
-                    renderDomainChips(data.allowed_domains);
-                    loadSecuritySettings();
-                } else {
-                    showToast(data.detail || 'فشل إضافة الدومين.', 'error');
-                }
-            } catch (e) {
-                showToast('تعذر الاتصال بالسيرفر.', 'error');
-            }
-        }
-
-        async function handleRemoveDomain(domain) {
-            if (!confirm(`هل أنت متأكد من حذف الدومين '${domain}' من القائمة المصرح لها؟`)) return;
-
-            try {
-                const res = await apiFetch('/api/security/domains/remove', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ domain: domain })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    showToast(data.message);
-                    renderDomainChips(data.allowed_domains);
-                    loadSecuritySettings();
-                } else {
-                    showToast(data.detail || 'فشل حذف الدومين.', 'error');
-                }
-            } catch (e) {
-                showToast('تعذر الاتصال بالسيرفر.', 'error');
-            }
-        }
-
-        async function toggleStrictMode(isChecked) {
-            try {
-                const res = await apiFetch('/api/security/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ strict_mode: isChecked })
-                });
-                if (res.ok) {
-                    showToast(`تم ${isChecked ? 'تفعيل الوضع الصارم' : 'إلغاء الوضع الصارم'} بنجاح.`);
-                    loadSecuritySettings();
-                }
-            } catch (e) {
-                showToast('فشل تعديل وضع الأمان.', 'error');
-            }
-        }
-
-        async function regenerateApiKey() {
-            if (!confirm('هل أنت متأكد من توليد مفتاح API جديد؟ ستحتاج لتحديثه في إعدادات موقعك Laravel!')) return;
-
-            try {
-                const isStrict = document.getElementById('strictModeToggle').checked;
-                const res = await apiFetch('/api/security/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ strict_mode: isStrict, generate_new_api_key: true })
-                });
-                const data = await res.json();
-                if (res.ok && data.settings) {
-                    document.getElementById('apiKeyDisplay').value = data.settings.api_key;
-                    showToast('تم توليد مفتاح API جديد بنجاح!');
-                }
-            } catch (e) {
-                showToast('فشل توليد المفتاح.', 'error');
-            }
-        }
-
-        async function handleChangePassword(e) {
-            e.preventDefault();
-            const oldP = document.getElementById('oldPasswordInput').value;
-            const newP = document.getElementById('newPasswordInput').value;
-
-            try {
-                const res = await apiFetch('/api/security/change-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ old_password: oldP, new_password: newP })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    showToast(data.message);
-                    document.getElementById('oldPasswordInput').value = '';
-                    document.getElementById('newPasswordInput').value = '';
-                } else {
-                    showToast(data.detail || 'فشل تغيير كلمة المرور.', 'error');
-                }
-            } catch (e) {
-                showToast('تعذر الاتصال بالسيرفر.', 'error');
-            }
-        }
-
-        // ==================== VIDEO EXTRACTOR ====================
-        function setExtractUrl(url) {
-            document.getElementById('extractVideoUrl').value = url;
-            handleExtractVideo();
-        }
-
-        async function handleExtractVideo() {
-            const input = document.getElementById('extractVideoUrl');
-            const url = input.value.trim();
-            const btn = document.getElementById('btnExtract');
-            if (!url) return;
-
-            btn.disabled = true;
-            btn.innerHTML = '<span>جاري الاستخراج الذكي...</span>';
-
-            try {
-                const res = await apiFetch('/api/extract', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: url, proxy_streams: true })
-                });
-                const data = await res.json();
-
-                if (!res.ok) {
-                    throw new Error(data.detail || 'فشل استخراج بيانات الفيديو.');
-                }
-
-                renderVideoResult(data);
-                showToast('تم استخراج جميع الجودات بنجاح!');
-            } catch (err) {
-                showToast(err.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>استخراج الروابط فوراً</span>`;
-            }
-        }
-
-        function renderVideoResult(data) {
-            const preview = document.getElementById('videoCardPreview');
-            const container = document.getElementById('formatsContainer');
-            const vInfo = data.video_info || {};
-
-            document.getElementById('vThumb').src = vInfo.thumbnail || '';
-            document.getElementById('vTitle').textContent = vInfo.title || 'فيديو يوتيوب';
-            document.getElementById('vChannel').textContent = vInfo.uploader || '';
-            document.getElementById('vDuration').textContent = `المدة: ${vInfo.duration_readable || ''}`;
-            document.getElementById('vViews').textContent = `${(vInfo.view_count || 0).toLocaleString()} مشاهدة`;
-            document.getElementById('vStrategyBadge').textContent = `الاستراتيجية: ${data.strategy_used || 'standard'}`;
-
-            preview.style.display = 'flex';
-            container.style.display = 'block';
-
-            // Combined Streams
-            const tbodyCombined = document.querySelector('#tableCombined tbody');
-            tbodyCombined.innerHTML = '';
-            const combinedList = (data.streams && data.streams.video_with_audio) || [];
-
-            combinedList.forEach(f => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><span class="quality-pill ${parseInt(f.quality_note) >= 720 ? 'hd' : 'sd'}">${f.quality_note || f.resolution}</span></td>
-                    <td style="font-family: var(--font-english);">${f.ext}</td>
-                    <td style="font-family: var(--font-english);">${f.filesize_readable || 'غير محدد'}</td>
-                    <td>
-                        <button class="btn-secondary" onclick="copyToClipboard('${f.url}', 'تم نسخ رابط Cloudflare Worker!')">نسخ الرابط السريع</button>
-                    </td>
-                    <td>
-                        <button class="btn-secondary" style="color: var(--text-muted);" onclick="copyToClipboard('${f.direct_url || f.url}', 'تم نسخ رابط يوتيوب المباشر!')">نسخ المباشر</button>
-                    </td>
-                `;
-                tbodyCombined.appendChild(tr);
-            });
-
-            // Audio Streams
-            const tbodyAudio = document.querySelector('#tableAudio tbody');
-            tbodyAudio.innerHTML = '';
-            const audioList = (data.streams && data.streams.audio_only) || [];
-
-            audioList.forEach(a => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><span class="quality-pill audio">${a.abr_kbps ? a.abr_kbps + ' kbps' : a.quality_note}</span></td>
-                    <td style="font-family: var(--font-english);">${a.ext} (${a.acodec || ''})</td>
-                    <td style="font-family: var(--font-english);">${a.filesize_readable || 'غير محدد'}</td>
-                    <td>
-                        <button class="btn-secondary" onclick="copyToClipboard('${a.url}', 'تم نسخ رابط الصوت السريع!')">نسخ الرابط السريع</button>
-                    </td>
-                    <td>
-                        <button class="btn-secondary" style="color: var(--text-muted);" onclick="copyToClipboard('${a.direct_url || a.url}', 'تم نسخ رابط يوتيوب المباشر!')">نسخ المباشر</button>
-                    </td>
-                `;
-                tbodyAudio.appendChild(tr);
-            });
-        }
-
-        // ==================== COOKIES MANAGEMENT ====================
-        async function loadCookieStatus() {
-            try {
-                const res = await apiFetch('/api/cookies/status');
-                const data = await res.json();
-                document.getElementById('cookiePathLabel').textContent = data.file_path || '/app/cookies.txt';
-                document.getElementById('cookieCountBadge').textContent = `${data.total_cookies || 0} كوكيز`;
-
-                const state = document.getElementById('statCookieState');
-                if (data.is_valid_file && data.total_cookies > 0) {
-                    state.textContent = `مسجلة (${data.total_cookies})`;
-                    state.style.color = '#34d399';
-                } else {
-                    state.textContent = 'وضع الزائر (Guest)';
-                    state.style.color = '#a5b4fc';
-                }
-            } catch (e) { }
-        }
-
-        async function handleSaveCookies() {
-            const text = document.getElementById('cookiesTextInput').value.trim();
-            const testImm = document.getElementById('testImmediatelyCheck').checked;
-            const btn = document.getElementById('btnSaveCookies');
-            if (!text) {
-                showToast('يرجى لصق نص الكوكيز أولاً.', 'error');
-                return;
-            }
-
-            btn.disabled = true;
-            btn.innerHTML = '<span>جاري المعالجة والحفظ...</span>';
-
-            try {
-                const res = await apiFetch('/api/cookies/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cookies_text: text, test_immediately: testImm })
-                });
-                const data = await res.json();
-                if (res.ok && data.status === 'success') {
-                    showToast(data.message || 'تم حفظ وتفعيل الكوكيز بنجاح!');
-                    document.getElementById('cookiesTextInput').value = '';
-                    loadCookieStatus();
-                } else {
-                    showToast(data.detail || 'فشل حفظ الكوكيز.', 'error');
-                }
-            } catch (e) {
-                showToast(e.message || 'تعذر حفظ الكوكيز.', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg><span>حفظ وتفعيل الكوكيز فوراً</span>`;
-            }
-        }
-
-        async function testCookiesLive() {
-            showToast('جاري فحص الكوكيز الحالية على فيديو يوتيوب...');
-            try {
-                const res = await apiFetch('/api/cookies/test', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    showToast(data.message || 'الكوكيز تعمل بنجاح!', 'success');
-                } else {
-                    showToast(data.message || 'فشل فحص الكوكيز.', 'error');
-                }
-            } catch (e) {
-                showToast('فشل تنفيذ فحص الكوكيز.', 'error');
-            }
-        }
-
-        async function clearCookiesConfirm() {
-            if (!confirm('هل تريد تفريغ ملف الكوكيز والتحويل لوضع الزائر (Guest Mode)؟')) return;
-
-            try {
-                const res = await apiFetch('/api/cookies', { method: 'DELETE' });
-                const data = await res.json();
-                if (res.ok) {
-                    showToast(data.message || 'تم تفريغ الكوكيز بنجاح.');
-                    loadCookieStatus();
-                }
-            } catch (e) {
-                showToast('فشل مسح ملف الكوكيز.', 'error');
-            }
-        }
-
-        // ==================== LIVE LOGS WATCHER ====================
-        function startLogsWatcher() {
-            if (logsInterval) clearInterval(logsInterval);
-            logsInterval = setInterval(() => {
-                const isTabActive = document.getElementById('tab-logs').classList.contains('active');
-                const isAuto = document.getElementById('autoRefreshLogsCheck').checked;
-                if (isTabActive && isAuto) {
-                    loadLogs(true);
-                }
-            }, 3000);
-        }
-
-        async function loadLogs(isSilent = false) {
-            try {
-                const res = await apiFetch('/api/logs');
-                const data = await res.json();
-                const terminal = document.getElementById('terminalLogContent');
-                const logs = data.logs || [];
-
-                if (logs.length === 0) {
-                    terminal.textContent = 'لا توجد سجلات مسجلة حالياً.';
-                    return;
-                }
-
-                terminal.innerHTML = logs.map(l => {
-                    return `<div class="log-entry ${l.level}">[${l.timestamp}] [${l.level}] [${l.logger}] ${escapeHtml(l.message)}</div>`;
-                }).join('');
-
-                terminal.scrollTop = terminal.scrollHeight;
-            } catch (e) { }
-        }
-
-        async function handleClearLogs() {
-            try {
-                await apiFetch('/api/logs', { method: 'DELETE' });
-                document.getElementById('terminalLogContent').textContent = 'تم مسح السجل.';
-                showToast('تم مسح سجل العمليات.');
-            } catch (e) {
-                showToast('فشل مسح السجل.', 'error');
-            }
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // Run auth verification on start
-        window.addEventListener('DOMContentLoaded', checkAuthOnStartup);
-    </script>
+    <!-- Modular JavaScript Scripts -->
+    <script src="/static/js/theme.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/charts.js"></script>
+    <script src="/static/js/telemetry.js"></script>
+    <script src="/static/js/overview.js"></script>
+    <script src="/static/js/cookies.js"></script>
+    <script src="/static/js/security.js"></script>
+    <script src="/static/js/terminal.js"></script>
+    <script src="/static/js/extractor.js"></script>
+    <script src="/static/js/app.js"></script>
 </body>
 </html>

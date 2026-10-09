@@ -77,6 +77,10 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
         'remote_components': {'ejs:github'}
     }
 
+    import tempfile
+    import uuid
+    runtime_cookie = None
+
     # إعداد محرك JavaScript إن وجد
     js_conf = _get_js_runtime_config()
     if js_conf:
@@ -85,8 +89,11 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
     if use_cookies:
         cookie_path = get_cookie_file_path()
         if cookie_path:
-            ydl_opts['cookiefile'] = cookie_path
-            logger.info(f"Using cookies from: {cookie_path}")
+            # إنشاء نسخة مؤقتة لتجنب تعارض القراءة/الكتابة المتزامن وتلف ملف الكوكيز
+            runtime_cookie = os.path.join(tempfile.gettempdir(), f"yt_cookies_{uuid.uuid4().hex}.txt")
+            shutil.copy2(cookie_path, runtime_cookie)
+            ydl_opts['cookiefile'] = runtime_cookie
+            logger.info(f"Using cookies from: {cookie_path} (copied to runtime)")
         else:
             logger.info("Cookie file requested but none found on disk; proceeding as guest.")
     else:
@@ -105,11 +112,18 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
         ydl_opts['proxy'] = proxy
         logger.info("Using configured proxy.")
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        if not info:
-            raise ValueError("No video data returned by yt-dlp.")
-        return info
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if not info:
+                raise ValueError("No video data returned by yt-dlp.")
+            return info
+    finally:
+        if runtime_cookie and os.path.exists(runtime_cookie):
+            try:
+                os.remove(runtime_cookie)
+            except Exception:
+                pass
 
 
 def extract_youtube_info(url: str) -> Dict[str, Any]:

@@ -4,6 +4,7 @@ __pycache__/
 *.so
 .env
 venv/
+.venv/
 env/
 ENV/
 .idea/

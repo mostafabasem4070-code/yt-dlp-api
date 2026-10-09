@@ -10,9 +10,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query, Request, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from log_manager import get_recent_logs, clear_logs
+from log_manager import get_recent_logs, clear_logs, setup_logging_capture
 from youtube_service import extract_youtube_info, get_cookie_file_path, test_cookie_health_live
 from stream_service import (
     get_stream_metadata,
@@ -44,6 +45,8 @@ from security_manager import (
     add_allowed_domain,
     remove_allowed_domain,
     update_security_preferences,
+    regenerate_api_key,
+    test_domain_authorization,
     is_request_authorized
 )
 
@@ -51,7 +54,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DASHBOARD_FILE = os.path.join(BASE_DIR, "static", "dashboard.html")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+DASHBOARD_FILE = os.path.join(STATIC_DIR, "dashboard.html")
+
+# تفعيل التقاط السجلات مباشرة
+setup_logging_capture()
 
 
 @asynccontextmanager
@@ -80,15 +87,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ربط مجلد الملفات الثابتة (CSS, JS, Assets)
+if os.path.exists(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
 
 # ===================== AUTHENTICATION & SECURITY HELPERS =====================
 
 def get_auth_token_from_request(request: Request) -> Optional[str]:
-    """استخراج توكن المصادقة من ترويسة Authorization أو X-Admin-Token أو ملف الكوكي"""
+    """استخراج توكن المصادقة من ترويسة Authorization أو X-Admin-Token أو X-Session-Token أو ملف الكوكي"""
     auth_header = request.headers.get("authorization") or ""
     if auth_header.startswith("Bearer "):
         return auth_header[7:].strip()
-    x_token = request.headers.get("x-admin-token")
+    x_token = request.headers.get("x-admin-token") or request.headers.get("x-session-token")
     if x_token:
         return x_token.strip()
     return request.cookies.get("admin_session")
@@ -294,13 +305,40 @@ def change_pwd_endpoint(payload: ChangePasswordRequest, request: Request):
     return {"success": True, "message": msg}
 
 
+@app.post("/api/security/api-key/regenerate", tags=["Security & Auth"])
+def regenerate_api_key_endpoint(request: Request):
+    """توليد مفتاح API جديد فورياً لربطه مع منصة Laravel في .env"""
+    require_admin(request)
+    new_key = regenerate_api_key()
+    return {
+        "success": True,
+        "api_key": new_key,
+        "message": "تم توليد مفتاح API جديد بنجاح. يرجى تحديث متغير YTDLP_API_KEY في ملف .env لمنصة Laravel."
+    }
+
+
+@app.post("/api/security/domains/test", tags=["Security & Auth"])
+def test_domain_endpoint(payload: DomainRequest, request: Request):
+    """فحص واختبار دومين أو رابط للتحقق مما إذا كان مصرحاً له أم محظوراً"""
+    require_admin(request)
+    return test_domain_authorization(payload.domain)
+
+
+
 
 # ===================== MONITORING & AUTO-UPDATER ENDPOINTS =====================
 
 @app.get("/api/monitor/health", tags=["Monitoring Center"])
 def get_health_monitoring():
-    """تقرير مراقبة شامل وفوري لكافة مكونات النظام (Deno, Node, yt-dlp, Cookies, FFmpeg, Network)"""
+    """تقرير مراقبة شامل وفوري لكافة مكونات النظام (Deno, Node, yt-dlp, Cookies, FFmpeg, Network, Resources)"""
     return get_full_monitoring_report()
+
+
+@app.get("/api/monitor/resources", tags=["Monitoring Center"])
+def get_live_resources():
+    """فحص حي سريع لموارد الخادم (CPU, RAM, Disk, Bandwidth, Uptime) للتحديث التلقائي الفوري"""
+    from health_monitor import check_system_resources
+    return check_system_resources()
 
 
 @app.post("/api/monitor/probe", tags=["Monitoring Center"])
@@ -340,6 +378,7 @@ def get_cookie_status():
 
     return {
         **health,
+        "is_valid_file": bool(cookie_path and os.path.exists(cookie_path) and file_size > 10 and len(cookies) > 0),
         "file_path": cookie_path,
         "file_size_bytes": file_size,
     }
@@ -431,9 +470,14 @@ def debug_info():
 
 
 @app.get("/api/logs", tags=["Diagnostics"])
-def view_logs(raw: bool = Query(False, description="عرض كـ نص خام للنسخ المباشر")):
-    """عرض سجلات العمليات والأخطاء الحية المسجلة أثناء فحص الروابط"""
-    logs = get_recent_logs()
+def view_logs(
+    limit: int = Query(120, description="الحد الأقصى لعدد السجلات"),
+    level: Optional[str] = Query(None, description="مستوى السجل (ALL, INFO, WARNING, ERROR, DEBUG)"),
+    search: Optional[str] = Query(None, description="بحث نصي في رسائل السجل"),
+    raw: bool = Query(False, description="عرض كـ نص خام للنسخ المباشر")
+):
+    """عرض سجلات العمليات والأخطاء الحية المسجلة أثناء فحص الروابط مع دعم الفلترة"""
+    logs = get_recent_logs(limit=limit, level=level, search=search)
     if raw:
         text_lines = [f"[{l['timestamp']}] [{l['level']}] [{l['logger']}] {l['message']}" for l in logs]
         return Response(content="\n".join(text_lines), media_type="text/plain; charset=utf-8")

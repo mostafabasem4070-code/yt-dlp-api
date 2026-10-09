@@ -329,6 +329,12 @@ def analyze_cookies_health(cookies: List[Dict[str, Any]]) -> Dict[str, Any]:
         min_target_exp = 0
         max_target_exp = 0
 
+    expiry_countdown = "غير محدد"
+    urgency_level = "guest"
+    remaining_days_int = 0
+    remaining_hours_int = 0
+    remaining_mins_int = 0
+
     if min_target_exp > 0:
         dt = datetime.fromtimestamp(min_target_exp, tz=timezone.utc)
         earliest_readable = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -338,8 +344,21 @@ def analyze_cookies_health(cookies: List[Dict[str, Any]]) -> Dict[str, Any]:
             is_expired = True
             days_remaining = 0.0
             expiry_human = "منتهية الصلاحية"
+            expiry_countdown = "منتهية منذ فترة"
+            urgency_level = "critical"
         else:
             days_remaining = round(diff_sec / 86400, 1)
+            remaining_days_int = int(diff_sec // 86400)
+            remaining_hours_int = int((diff_sec % 86400) // 3600)
+            remaining_mins_int = int((diff_sec % 3600) // 60)
+
+            if remaining_days_int > 0:
+                expiry_countdown = f"{remaining_days_int} يوم و {remaining_hours_int} ساعة"
+            elif remaining_hours_int > 0:
+                expiry_countdown = f"{remaining_hours_int} ساعة و {remaining_mins_int} دقيقة"
+            else:
+                expiry_countdown = f"{max(1, remaining_mins_int)} دقيقة"
+
             if diff_sec >= 86400 * 2:
                 expiry_human = f"{int(days_remaining)} يوم"
             elif diff_sec >= 86400:
@@ -350,25 +369,35 @@ def analyze_cookies_health(cookies: List[Dict[str, Any]]) -> Dict[str, Any]:
             else:
                 minutes = max(1, int(diff_sec / 60))
                 expiry_human = f"{minutes} دقيقة"
+
+            if remaining_days_int <= 3:
+                urgency_level = "critical"
+            elif remaining_days_int <= 14:
+                urgency_level = "warning"
+            else:
+                urgency_level = "good"
     else:
         expiry_human = "جلسة مؤقتة (Session)"
+        expiry_countdown = "جلسة مؤقتة لا تنتهي برقم"
+        urgency_level = "guest"
 
     # تحديد الحالة العامة
     has_login_info = "LOGIN_INFO" in names_present
-    has_sid = "__Secure-3PSID" in names_present or "SID" in names_present
+    has_sid = any(k in names_present for k in ["__Secure-3PSID", "__Secure-1PSID", "SID", "SSID", "HSID", "SAPISID", "APISID", "__Secure-3PSIDTS", "__Secure-1PSIDTS"])
+    has_any_auth = has_login_info or has_sid or len(auth_found) > 0
 
     if is_expired:
         status_code = "expired"
         status_msg = "انتهت صلاحية كوكيز تسجيل الدخول الأساسية. يلزم تجديدها لضمان استمرار العمل بكفاءة."
-    elif not has_login_info and not has_sid:
+    elif not has_any_auth:
         status_code = "guest_only"
-        status_msg = f"الكوكيز تعمل في وضع الزائر (بدون تسجيل دخول). صالحة لمدة {expiry_human}."
-    elif len(auth_found) >= 3:
+        status_msg = f"الكوكيز تعمل في وضع الزائر (بدون تسجيل دخول حساب). صالحة لمدة {expiry_human}."
+    elif len(auth_found) >= 2 or has_login_info or has_sid:
         status_code = "valid"
-        status_msg = f"الكوكيز صالحة ومسجلة الدخول بنجاح! تنتهي جلسة الحساب بعد {expiry_human}."
+        status_msg = f"الكوكيز صالحة ومسجلة الدخول بنجاح! تنتهي جلسة الحساب بعد {expiry_countdown} ({earliest_readable})."
     else:
         status_code = "partial"
-        status_msg = f"الكوكيز جزئية ولكنها مسجلة. تنتهي جلسة الحساب بعد {expiry_human}."
+        status_msg = f"الكوكيز مسجلة جزئياً. تنتهي جلسة الحساب بعد {expiry_countdown}."
 
     # تفاصيل كل كوكي للعرض في لوحة التحكم
     items = []
@@ -377,10 +406,27 @@ def analyze_cookies_health(cookies: List[Dict[str, Any]]) -> Dict[str, Any]:
         c_name = c.get("name", "")
         c_is_ephemeral = c_name in EPHEMERAL_COOKIES
         c_status = "active"
+        item_diff = c_exp - now_ts if c_exp > 0 else 0
+        item_days_rem = round(item_diff / 86400, 1) if item_diff > 0 else 0.0
+
         if c_exp > 0 and c_exp < now_ts:
             c_status = "session" if c_is_ephemeral else "expired"
         elif c_exp == 0:
             c_status = "session"
+
+        # تصنيف نوع الكوكي
+        if c_name in CRITICAL_AUTH_COOKIES:
+            category = "مصادقة أساسية (Auth)"
+            category_badge = "primary"
+        elif c_name in IMPORTANT_SESSION_COOKIES:
+            category = "جلسة وأمان (Session)"
+            category_badge = "cyan"
+        elif c_is_ephemeral:
+            category = "مؤقتة وتتبع (Tracking)"
+            category_badge = "muted"
+        else:
+            category = "عامة (General)"
+            category_badge = "default"
 
         items.append({
             "name": c_name,
@@ -388,9 +434,13 @@ def analyze_cookies_health(cookies: List[Dict[str, Any]]) -> Dict[str, Any]:
             "http_only": c.get("http_only", False),
             "secure": c.get("secure", True),
             "expiration": c_exp,
-            "expiration_readable": datetime.fromtimestamp(c_exp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M") if c_exp > 0 else "Session",
+            "expiration_readable": datetime.fromtimestamp(c_exp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M") if c_exp > 0 else "جلسة متصفح",
+            "days_remaining": item_days_rem,
+            "remaining_human": f"{int(item_days_rem)} يوم" if item_days_rem >= 2 else (f"{item_days_rem} يوم" if item_days_rem > 0 else ("منتهية" if c_exp > 0 else "مستمرة")),
             "is_auth": c_name in CRITICAL_AUTH_COOKIES,
             "is_ephemeral": c_is_ephemeral,
+            "category": category,
+            "category_badge": category_badge,
             "status": c_status
         })
 
@@ -409,7 +459,12 @@ def analyze_cookies_health(cookies: List[Dict[str, Any]]) -> Dict[str, Any]:
         "latest_expiry_timestamp": max_target_exp,
         "is_expired": is_expired,
         "days_until_expiry": max(0.0, days_remaining),
+        "days_int": remaining_days_int,
+        "hours_int": remaining_hours_int,
+        "mins_int": remaining_mins_int,
         "expiry_human": expiry_human,
+        "expiry_countdown": expiry_countdown,
+        "urgency": urgency_level,
         "items": items
     }
 

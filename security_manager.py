@@ -31,12 +31,17 @@ def _load_config() -> Dict[str, Any]:
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                cfg = json.load(f)
+                # ضمان وجود الحقول الضرورية
+                if "api_key" not in cfg or not cfg["api_key"]:
+                    cfg["api_key"] = os.getenv("API_KEY") or f"sec_{secrets.token_hex(16)}"
+                    _save_config(cfg)
+                return cfg
         except Exception as e:
             logger.error(f"Failed to load security config: {e}")
 
     # القيم الافتراضية مع قراءة متغيرات البيئة إن وجدت
-    env_password = os.getenv("ADMIN_PASSWORD") or os.getenv("DASHBOARD_PASSWORD") or "admin2026!"
+    env_password = os.getenv("ADMIN_PASSWORD") or os.getenv("DASHBOARD_PASSWORD") or "97351294m"
     hashed_pwd, salt = _hash_password(env_password)
 
     env_domains_raw = os.getenv("ALLOWED_DOMAINS", "*")
@@ -142,23 +147,92 @@ def revoke_session_token(token: str) -> None:
 # ===================== DOMAIN WHITELIST & ORIGIN VALIDATION =====================
 
 def normalize_domain(domain_str: str) -> str:
-    """استخراج النطاق الصافي بدون بروتوكول أو منافذ أو مسارات"""
+    """
+    استخراج النطاق الصافي بدقة بدون بروتوكول، منافذ، مسارات، أو لاحقات:
+    يدعم:
+    - https://domain.com/path -> domain.com
+    - http://sub.domain.com:8000 -> sub.domain.com
+    - *.domain.com -> *.domain.com
+    - //localhost/ -> localhost
+    """
     raw = domain_str.strip().lower()
     if not raw:
         return ""
-    if raw.startswith("http://") or raw.startswith("https://"):
+    if raw == "*":
+        return "*"
+    
+    # إزالة أي مسار لاحق إذا لم يكن يحتوي بروتوكول
+    if "://" not in raw:
+        # إذا بدأ بـ //
+        if raw.startswith("//"):
+            raw = "http:" + raw
+        else:
+            raw = "http://" + raw
+
+    try:
         parsed = urlparse(raw)
-        return (parsed.hostname or "").lower()
-    # إزالة أي مسار أو منفذ
-    raw = raw.split("/")[0].split(":")[0]
-    return raw
+        host = (parsed.hostname or "").lower().strip()
+        # إذا كان الدومين يحتوي على علامة النجمة للـ wildcard الفرعي
+        if not host and "*" in raw:
+            host = raw.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
+        return host
+    except Exception:
+        # Fallback يدوي نظيف
+        clean = raw.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
+        return clean.strip()
+
+
+def check_domain_matches(caller: str, pattern: str) -> bool:
+    """
+    مطابقة ذكية مرنة بين الدومين الطالب والنمط المصرح به:
+    - النمط '*' يطابق أي دومين.
+    - النمط '*.example.com' يطابق 'example.com' و 'sub.example.com'.
+    - النمط 'example.com' يطابق 'example.com' و 'www.example.com' و 'lms.example.com'.
+    - النمط 'localhost' يطابق 'localhost' و '127.0.0.1'.
+    """
+    caller = caller.lower().strip()
+    pattern = pattern.lower().strip()
+
+    if not caller or not pattern:
+        return False
+
+    if pattern == "*":
+        return True
+
+    # دعم الدومينات المحلية
+    if pattern in ("localhost", "127.0.0.1") and caller in ("localhost", "127.0.0.1"):
+        return True
+
+    # إذا كان النمط يبدأ بنجمة فرعية
+    if pattern.startswith("*."):
+        root = pattern[2:]
+        return caller == root or caller.endswith("." + root)
+
+    # تطابق تام
+    if caller == pattern:
+        return True
+
+    # تطابق كنطاق فرعي
+    if caller.endswith("." + pattern):
+        return True
+
+    # تطابق إذا كان النمط يحتوي www والطلب بدونها أو العكس
+    if pattern.startswith("www.") and caller == pattern[4:]:
+        return True
+    if caller.startswith("www.") and caller[4:] == pattern:
+        return True
+
+    return False
 
 
 def get_security_settings() -> Dict[str, Any]:
-    """الحصول على كافة إعدادات الأمان والدومينات المصرح لها (دون كشف التجزئة)"""
+    """الحصول على كافة إعدادات الأمان والدومينات المصرح لها ومفتاح الـ API"""
     cfg = _load_config()
+    domains = cfg.get("allowed_domains", ["*"])
+    if not domains:
+        domains = ["*"]
     return {
-        "allowed_domains": cfg.get("allowed_domains", ["*"]),
+        "allowed_domains": domains,
         "strict_mode": cfg.get("strict_mode", False),
         "api_key": cfg.get("api_key", ""),
         "updated_at": cfg.get("updated_at", 0),
@@ -170,18 +244,22 @@ def add_allowed_domain(domain: str) -> Tuple[bool, str, List[str]]:
     """إضافة دومين جديد إلى قائمة الدومينات المصرح لها"""
     clean = normalize_domain(domain)
     if not clean:
-        return False, "اسم الدومين غير صالح.", []
+        return False, "اسم الدومين المدخل غير صالح.", []
 
     cfg = _load_config()
     domains = cfg.get("allowed_domains", [])
 
+    # إذا كانت القائمة تحتوي فقط على '*' وأضاف دومين حقيقي، نزيل '*' لجعل الحماية فعالة
+    if clean != "*" and "*" in domains and len(domains) == 1:
+        domains = []
+
     if clean in domains:
-        return True, "الدومين موجود بالفعل في القائمة.", domains
+        return True, "الدومين موجود بالفعل في قائمة المصرح لهم.", domains
 
     domains.append(clean)
     cfg["allowed_domains"] = domains
     _save_config(cfg)
-    return True, f"تمت إضافة الدومين {clean} بنجاح.", domains
+    return True, f"تمت إضافة الدومين ({clean}) بنجاح.", domains
 
 
 def remove_allowed_domain(domain: str) -> Tuple[bool, str, List[str]]:
@@ -194,9 +272,13 @@ def remove_allowed_domain(domain: str) -> Tuple[bool, str, List[str]]:
         return False, "الدومين غير موجود في القائمة.", domains
 
     domains = [d for d in domains if d != clean and d != domain]
+    # إذا فرغت القائمة تماماً، نعيدها للوضع الآمن المفتوح الافتراضي لتجنب شلل النظام
+    if not domains:
+        domains = ["*"]
+
     cfg["allowed_domains"] = domains
     _save_config(cfg)
-    return True, f"تم حذف الدومين {clean} بنجاح.", domains
+    return True, f"تم حذف الدومين بنجاح.", domains
 
 
 def update_security_preferences(strict_mode: bool, allowed_domains: Optional[List[str]] = None, generate_new_api_key: bool = False) -> Dict[str, Any]:
@@ -206,6 +288,8 @@ def update_security_preferences(strict_mode: bool, allowed_domains: Optional[Lis
 
     if allowed_domains is not None:
         cleaned = [normalize_domain(d) for d in allowed_domains if normalize_domain(d)]
+        if not cleaned:
+            cleaned = ["*"]
         cfg["allowed_domains"] = cleaned
 
     if generate_new_api_key:
@@ -213,6 +297,65 @@ def update_security_preferences(strict_mode: bool, allowed_domains: Optional[Lis
 
     _save_config(cfg)
     return get_security_settings()
+
+
+def regenerate_api_key() -> str:
+    """توليد مفتاح API جديد وحفظه فورياً"""
+    cfg = _load_config()
+    new_key = f"sec_{secrets.token_hex(16)}"
+    cfg["api_key"] = new_key
+    _save_config(cfg)
+    return new_key
+
+
+def test_domain_authorization(test_input: str) -> Dict[str, Any]:
+    """أداة فحص واختبار حية للتحقق مما إذا كان الدومين أو الرابط مصرحاً له أم محظوراً"""
+    clean = normalize_domain(test_input)
+    cfg = _load_config()
+    domains = cfg.get("allowed_domains", ["*"])
+    strict = cfg.get("strict_mode", False)
+
+    if not clean:
+        return {
+            "authorized": False,
+            "domain": test_input,
+            "normalized": "",
+            "reason": "صيغة الدومين أو الرابط غير صالحة."
+        }
+
+    # إذا كان مسموح للجميع
+    if "*" in domains and not strict:
+        return {
+            "authorized": True,
+            "domain": test_input,
+            "normalized": clean,
+            "reason": "مصرح به تلقائياً (الوضع مفتوح للجميع مع تعطيل الوضع الصارم)."
+        }
+
+    # فحص التطابق مع القائمة
+    for pat in domains:
+        if check_domain_matches(clean, pat):
+            return {
+                "authorized": True,
+                "domain": test_input,
+                "normalized": clean,
+                "reason": f"مصرح به بنجاح (مطابق للقاعدة: {pat})."
+            }
+
+    if clean in ("localhost", "127.0.0.1"):
+        return {
+            "authorized": True,
+            "domain": test_input,
+            "normalized": clean,
+            "reason": "مصرح به (طلب محلي Localhost)."
+        }
+
+    return {
+        "authorized": False,
+        "domain": test_input,
+        "normalized": clean,
+        "reason": f"مرفوض: الدومين '{clean}' غير مطابق لأي دومين في قائمة المصرح لهم والوضع الصارم مفعل."
+    }
 
 
 def is_request_authorized(
@@ -223,54 +366,63 @@ def is_request_authorized(
     auth_token: Optional[str] = None
 ) -> Tuple[bool, str]:
     """
-    التحقق مما إذا كان الطلب مصرحاً له:
-    1. إذا كانت الجلسة مسجلة كمسؤول (Dashboard Auth Token) -> مصرح دائماً.
-    2. إذا تم تمرير API Key صحيح (من Laravel عبر X-API-Key) -> مصرح دائماً.
-    3. إذا لم يكن الوضع الصارم مفعلاً وكانت قائمة الدومينات تحتوي على '*' -> مصرح.
-    4. إذا كان الوضع الصارم مفعلاً، يتم فحص Origin أو Referer ومطابقته بالقائمة.
+    التحقق الصارم والموثوق من تصريح الطلب:
+    1. المشرف المصادق عليه (Dashboard Session) -> مصرح دائماً.
+    2. مفتاح الـ API المعتمد (X-API-Key من Laravel أو الخوادم الشريكة) -> مصرح دائماً.
+    3. إذا لم يكن الوضع الصارم مفعلاً وتوجد النجمة '*' -> مصرح.
+    4. فحص Origin و Referer ومطابقتهما ذكياً مع قائمة الدومينات المسموحة.
+    5. طلبات الخادم المحلية (Localhost).
     """
     # 1. فحص توكن جلسة المشرف
     if auth_token and validate_session_token(auth_token):
         return True, "Authorized via Admin Session"
 
     cfg = _load_config()
-    expected_api_key = cfg.get("api_key")
+    expected_api_key = cfg.get("api_key", "").strip()
 
-    # 2. فحص مفتاح الـ API المرسل من السيرفر (Laravel أو غيره)
-    if expected_api_key and api_key_header and hmac.compare_digest(expected_api_key, api_key_header):
-        return True, "Authorized via API Key"
+    # 2. فحص مفتاح الـ API المرسل من Laravel (عبر X-API-Key أو Query Param)
+    if expected_api_key and api_key_header:
+        clean_header = api_key_header.strip()
+        if hmac.compare_digest(expected_api_key, clean_header):
+            return True, "Authorized via API Key"
 
     allowed_domains = cfg.get("allowed_domains", ["*"])
     strict_mode = cfg.get("strict_mode", False)
 
-    # إذا كان مسموح للجميع ولم يتم تفعيل الوضع الصارم
+    # 3. الوضع المفتوح للجميع
     if "*" in allowed_domains and not strict_mode:
         return True, "Open access (Wildcard allowed)"
 
-    # استخراج الدومين من ترويسة Origin أو Referer
-    caller_domain = ""
+    # استخراج وتوحيد الدومين الطالب من Origin أو Referer
+    caller_domains_to_test = []
     if origin:
-        caller_domain = normalize_domain(origin)
-    elif referer:
-        caller_domain = normalize_domain(referer)
+        c_orig = normalize_domain(origin)
+        if c_orig:
+            caller_domains_to_test.append(c_orig)
+    if referer:
+        c_ref = normalize_domain(referer)
+        if c_ref and c_ref not in caller_domains_to_test:
+            caller_domains_to_test.append(c_ref)
 
-    # فحص الدومين في القائمة المسموحة
-    if caller_domain:
-        for allowed in allowed_domains:
-            allowed_clean = normalize_domain(allowed)
-            if allowed_clean == "*":
-                return True, "Wildcard match"
-            if caller_domain == allowed_clean or caller_domain.endswith("." + allowed_clean):
-                return True, f"Domain allowed: {caller_domain}"
+    # 4. فحص التطابق مع القائمة
+    for caller in caller_domains_to_test:
+        for pattern in allowed_domains:
+            if check_domain_matches(caller, pattern):
+                return True, f"Domain allowed: {caller} (matched {pattern})"
 
-    # إذا كان الطلب من السيرفر نفسه (Localhost / Railway Host)
+    # 5. إذا كان الطلب من السيرفر المحلي نفسه
     if host:
         host_clean = normalize_domain(host)
-        if host_clean in ("localhost", "127.0.0.1") or (caller_domain in ("localhost", "127.0.0.1")):
-            return True, "Localhost allowed"
+        if host_clean in ("localhost", "127.0.0.1"):
+            return True, "Localhost host allowed"
+
+    for caller in caller_domains_to_test:
+        if caller in ("localhost", "127.0.0.1"):
+            return True, "Localhost caller allowed"
 
     # في حال فشل التطابق
-    if not caller_domain:
-        return False, "طلب غير مصرح به: لم يتم إرسال ترويسة Origin أو مفتاح API صالح."
+    if not caller_domains_to_test:
+        return False, "طلب غير مصرح به: لم يتم إرسال ترويسة Origin أو Referer مطابقة، ولم يتم تقديم مفتاح API صالح."
 
-    return False, f"طلب مرفوض: الدومين '{caller_domain}' غير مدرج في قائمة الدومينات المصرح لها."
+    tested_str = ", ".join(caller_domains_to_test)
+    return False, f"طلب مرفوض: الدومين الطالب ({tested_str}) غير مدرج في قائمة الدومينات المصرح لها."
