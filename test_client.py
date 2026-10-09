@@ -45,17 +45,29 @@ def test_api(target_video_url: str):
             print(f"\n1. فيديوهات مدمجة بالصوت (جاهزة للتشغيل والتحميل المباشر):")
             for item in streams.get("video_with_audio", []):
                 print(f"   • [{item['ext']}] {item['quality_note']} ({item['resolution']}) - الحجم: {item['filesize_readable'] or 'غير محدد'}")
-                print(f"     رابط مؤقت: {item['url'][:80]}...\n")
+                print(f"     رابط البث السريع (Proxy): {item['url'][:80]}...")
+                if 'direct_url' in item:
+                    print(f"     رابط يوتيوب المباشر: {item['direct_url'][:80]}...\n")
+                else:
+                    print("")
 
             print(f"\n2. فيديوهات بجودة عالية (فيديو فقط بدون صوت - 1080p, 4K):")
             for item in streams.get("video_only", [])[:5]:  # عرض أول 5 جودات
                 print(f"   • [{item['ext']}] {item['quality_note']} ({item['resolution']}) - الحجم: {item['filesize_readable'] or 'غير محدد'}")
-                print(f"     رابط مؤقت: {item['url'][:80]}...\n")
+                print(f"     رابط البث السريع (Proxy): {item['url'][:80]}...")
+                if 'direct_url' in item:
+                    print(f"     رابط يوتيوب المباشر: {item['direct_url'][:80]}...\n")
+                else:
+                    print("")
 
             print(f"\n3. مسارات صوتية فقط (Audio Streams):")
             for item in streams.get("audio_only", [])[:3]:
                 print(f"   • [{item['ext']}] {item['abr_kbps']} kbps - الحجم: {item['filesize_readable'] or 'غير محدد'}")
-                print(f"     رابط مؤقت: {item['url'][:80]}...\n")
+                print(f"     رابط البث السريع (Proxy): {item['url'][:80]}...")
+                if 'direct_url' in item:
+                    print(f"     رابط يوتيوب المباشر: {item['direct_url'][:80]}...\n")
+                else:
+                    print("")
 
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8")

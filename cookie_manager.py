@@ -24,6 +24,8 @@ CRITICAL_AUTH_COOKIES = [
     "SSID",
     "SAPISID",
     "APISID",
+    "__Secure-3PAPISID",
+    "__Secure-1PAPISID",
 ]
 
 IMPORTANT_SESSION_COOKIES = [
@@ -35,6 +37,12 @@ IMPORTANT_SESSION_COOKIES = [
     "__Secure-1PSIDCC",
     "__Secure-YENID",
 ]
+
+# كوكيز مؤقتة أو تتبعية لحظية لا تعبر عن مدة جلسة الحساب ويجب استثناؤها من حساب تاريخ انتهاء الجلسة
+EPHEMERAL_COOKIES = {
+    "GPS",  # كوكي موقع جغرافي مدته 30 دقيقة فقط وتحدثه يوتيوب تلقائياً
+    "YSC",  # كوكي جلسة متصفح لحظي
+}
 
 
 def parse_raw_cookie_input(raw_text: str) -> Tuple[List[Dict[str, Any]], str]:
@@ -255,7 +263,9 @@ def read_active_cookies() -> Tuple[List[Dict[str, Any]], Optional[str]]:
 
 def analyze_cookies_health(cookies: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    فحص شامل لحالة وصلاحية الكوكيز وتواريخ انتهائها والكوكيز المفقودة.
+    فحص شامل لحالة وصلاحية الكوكيز وتواريخ انتهائها ومفاتيح المصادقة.
+    يعتمد في احتساب تاريخ انتهاء الجلسة على كوكيز المصادقة الأساسية (Auth Cookies)،
+    ويتجاهل الكوكيز اللحظية/المؤقتة مثل GPS و YSC لضمان دقة مدة الصلاحية.
     """
     if not cookies:
         return {
@@ -267,7 +277,8 @@ def analyze_cookies_health(cookies: List[Dict[str, Any]]) -> Dict[str, Any]:
             "missing_critical_cookies": CRITICAL_AUTH_COOKIES,
             "earliest_expiry_readable": None,
             "is_expired": False,
-            "days_until_expiry": 0,
+            "days_until_expiry": 0.0,
+            "expiry_human": "غير متوفرة",
             "items": []
         }
 
@@ -276,24 +287,71 @@ def analyze_cookies_health(cookies: List[Dict[str, Any]]) -> Dict[str, Any]:
     auth_found = [c["name"] for c in cookies if c["name"] in CRITICAL_AUTH_COOKIES]
     missing_crit = [c for c in CRITICAL_AUTH_COOKIES if c not in names_present]
 
-    # حساب تاريخ الانتهاء
-    expirations = [c["expiration"] for c in cookies if c.get("expiration", 0) > now_ts]
-    all_expirations = [c["expiration"] for c in cookies if c.get("expiration", 0) > 0]
+    # استخراج كوكيز المصادقة التي تملك تاريخ انتهاء محدد
+    auth_cookies = [
+        c for c in cookies 
+        if c["name"] in CRITICAL_AUTH_COOKIES and c.get("expiration", 0) > 0
+    ]
+    
+    # استخراج الكوكيز العامة الصالحة (مع استثناء الكوكيز اللحظية المؤقتة مثل GPS و YSC)
+    general_cookies = [
+        c for c in cookies 
+        if c["name"] not in EPHEMERAL_COOKIES and c.get("expiration", 0) > 0
+    ]
+    # إذا كانت هناك كوكيز عامة مدتها أكثر من ساعة، نتجاهل أي كوكيز تتبع لحظية أخرى أقل من ساعة
+    longer_general = [c for c in general_cookies if (c.get("expiration", 0) - now_ts) > 3600]
+    if longer_general:
+        general_cookies = longer_general
 
-    min_future_exp = min(expirations) if expirations else (min(all_expirations) if all_expirations else 0)
-    max_future_exp = max(all_expirations) if all_expirations else 0
+    # تحديد الكوكيز المستهدفة لحساب الصلاحية:
+    # 1. الأولوية المطلقة لكوكيز المصادقة الأساسية إذا كانت متوفرة
+    # 2. إذا لم تكن متوفرة (وضع الزائر Guest Mode)، نعتمد على الكوكيز العامة الصالحة
+    target_pool = auth_cookies if auth_cookies else general_cookies
+
+    future_exps = [c["expiration"] for c in target_pool if c["expiration"] > now_ts]
+    all_target_exps = [c["expiration"] for c in target_pool]
 
     is_expired = False
-    days_remaining = 0
+    days_remaining = 0.0
+    expiry_human = "غير محدد"
     earliest_readable = None
 
-    if min_future_exp > 0:
-        dt = datetime.fromtimestamp(min_future_exp, tz=timezone.utc)
+    if future_exps:
+        min_target_exp = min(future_exps)
+        max_target_exp = max(future_exps)
+    elif all_target_exps:
+        # الكوكيز المستهدفة منتهية الصلاحية جميعها
+        min_target_exp = min(all_target_exps)
+        max_target_exp = max(all_target_exps)
+        is_expired = True
+    else:
+        # كوكيز جلسة مؤقتة (Session cookies) بدون تاريخ انتهاء بالأرقام
+        min_target_exp = 0
+        max_target_exp = 0
+
+    if min_target_exp > 0:
+        dt = datetime.fromtimestamp(min_target_exp, tz=timezone.utc)
         earliest_readable = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-        diff_sec = min_future_exp - now_ts
-        days_remaining = round(diff_sec / 86400, 1)
-        if diff_sec < 0:
+        diff_sec = min_target_exp - now_ts
+        
+        if diff_sec <= 0:
             is_expired = True
+            days_remaining = 0.0
+            expiry_human = "منتهية الصلاحية"
+        else:
+            days_remaining = round(diff_sec / 86400, 1)
+            if diff_sec >= 86400 * 2:
+                expiry_human = f"{int(days_remaining)} يوم"
+            elif diff_sec >= 86400:
+                expiry_human = f"{days_remaining} يوم"
+            elif diff_sec >= 3600:
+                hours = round(diff_sec / 3600, 1)
+                expiry_human = f"{hours} ساعة"
+            else:
+                minutes = max(1, int(diff_sec / 60))
+                expiry_human = f"{minutes} دقيقة"
+    else:
+        expiry_human = "جلسة مؤقتة (Session)"
 
     # تحديد الحالة العامة
     has_login_info = "LOGIN_INFO" in names_present
@@ -301,35 +359,38 @@ def analyze_cookies_health(cookies: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     if is_expired:
         status_code = "expired"
-        status_msg = "انتهت صلاحية بعض أو كل الكوكيز الأساسية. يلزم تجديدها."
+        status_msg = "انتهت صلاحية كوكيز تسجيل الدخول الأساسية. يلزم تجديدها لضمان استمرار العمل بكفاءة."
     elif not has_login_info and not has_sid:
         status_code = "guest_only"
-        status_msg = "الكوكيز لا تحتوي على بيانات تسجيل الدخول (LOGIN_INFO / SID). قد تعمل لبعض الفيديوهات العامة فقط."
+        status_msg = f"الكوكيز تعمل في وضع الزائر (بدون تسجيل دخول). صالحة لمدة {expiry_human}."
     elif len(auth_found) >= 3:
         status_code = "valid"
-        status_msg = f"الكوكيز صالحة ومسجلة الدخول بنجاح! تنتهي أقرب جلسة بعد {days_remaining} يوم."
+        status_msg = f"الكوكيز صالحة ومسجلة الدخول بنجاح! تنتهي جلسة الحساب بعد {expiry_human}."
     else:
         status_code = "partial"
-        status_msg = "الكوكيز جزئية ولكنها مسجلة."
+        status_msg = f"الكوكيز جزئية ولكنها مسجلة. تنتهي جلسة الحساب بعد {expiry_human}."
 
     # تفاصيل كل كوكي للعرض في لوحة التحكم
     items = []
     for c in cookies:
         c_exp = c.get("expiration", 0)
+        c_name = c.get("name", "")
+        c_is_ephemeral = c_name in EPHEMERAL_COOKIES
         c_status = "active"
         if c_exp > 0 and c_exp < now_ts:
-            c_status = "expired"
+            c_status = "session" if c_is_ephemeral else "expired"
         elif c_exp == 0:
             c_status = "session"
 
         items.append({
-            "name": c["name"],
+            "name": c_name,
             "domain": c["domain"],
             "http_only": c.get("http_only", False),
             "secure": c.get("secure", True),
             "expiration": c_exp,
             "expiration_readable": datetime.fromtimestamp(c_exp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M") if c_exp > 0 else "Session",
-            "is_auth": c["name"] in CRITICAL_AUTH_COOKIES,
+            "is_auth": c_name in CRITICAL_AUTH_COOKIES,
+            "is_ephemeral": c_is_ephemeral,
             "status": c_status
         })
 
@@ -344,10 +405,11 @@ def analyze_cookies_health(cookies: List[Dict[str, Any]]) -> Dict[str, Any]:
         "auth_cookies_found": auth_found,
         "missing_critical_cookies": missing_crit,
         "earliest_expiry_readable": earliest_readable,
-        "earliest_expiry_timestamp": min_future_exp,
-        "latest_expiry_timestamp": max_future_exp,
+        "earliest_expiry_timestamp": min_target_exp,
+        "latest_expiry_timestamp": max_target_exp,
         "is_expired": is_expired,
-        "days_until_expiry": max(0, days_remaining),
+        "days_until_expiry": max(0.0, days_remaining),
+        "expiry_human": expiry_human,
         "items": items
     }
 

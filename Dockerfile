@@ -34,5 +34,5 @@ COPY . .
 ENV PORT=8000
 EXPOSE ${PORT}
 
-# تشغيل خادم Uvicorn وربطه بالمنفذ المخصص
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
+# تشغيل خادم Uvicorn وربطه بالمنفذ المخصص مع دعم البروكسي العكسي لـ Railway
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'"]

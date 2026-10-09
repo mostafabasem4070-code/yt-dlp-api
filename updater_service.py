@@ -45,9 +45,14 @@ def _parse_version_tuple(v_str: Optional[str]):
     if not v_str:
         return ()
     try:
-        return tuple(int(x) for x in v_str.replace("v", "").strip().split("."))
+        clean = v_str.replace("v", "").strip()
+        parts = []
+        for x in clean.split("."):
+            digits = "".join(ch for ch in x if ch.isdigit())
+            parts.append(int(digits) if digits else 0)
+        return tuple(parts)
     except Exception:
-        return (v_str,)
+        return ()
 
 
 def run_ytdlp_upgrade(force: bool = False) -> Dict[str, Any]:

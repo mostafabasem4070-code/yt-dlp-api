@@ -3,15 +3,24 @@ import sys
 import shutil
 import logging
 import asyncio
+import re
+import random
 from typing import Optional
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query, Request, status, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from log_manager import get_recent_logs, clear_logs
 from youtube_service import extract_youtube_info, get_cookie_file_path, test_cookie_health_live
+from stream_service import (
+    get_stream_metadata,
+    parse_range_header,
+    stream_chunked_response,
+    build_proxy_url,
+    DEFAULT_CHUNK_SIZE
+)
 from cookie_manager import (
     read_active_cookies,
     analyze_cookies_health,
@@ -25,6 +34,18 @@ from updater_service import (
     background_auto_updater
 )
 from health_monitor import get_full_monitoring_report
+from security_manager import (
+    verify_admin_password,
+    change_admin_password,
+    create_session_token,
+    validate_session_token,
+    revoke_session_token,
+    get_security_settings,
+    add_allowed_domain,
+    remove_allowed_domain,
+    update_security_preferences,
+    is_request_authorized
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -46,8 +67,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="YouTube Direct Links Extractor & Cookie Hub API",
-    description="API متطور لاستخراج الروابط المباشرة المؤقتة لجميع جودات فيديو اليوتيوب مع إدارة شاملة لكوكيز الدخول، مركز مراقبة حي، وتحديثات تلقائية لمكتبة yt-dlp.",
-    version="1.3.0",
+    description="API متطور لاستخراج الروابط المباشرة المؤقتة لجميع جودات فيديو اليوتيوب مع إدارة شاملة لكوكيز الدخول، مركز مراقبة حي، وتحديثات تلقائية لمكتبة yt-dlp وحماية أمنية للدومينات ولوحة التحكم.",
+    version="1.5.0",
     lifespan=lifespan
 )
 
@@ -60,8 +81,58 @@ app.add_middleware(
 )
 
 
+# ===================== AUTHENTICATION & SECURITY HELPERS =====================
+
+def get_auth_token_from_request(request: Request) -> Optional[str]:
+    """استخراج توكن المصادقة من ترويسة Authorization أو X-Admin-Token أو ملف الكوكي"""
+    auth_header = request.headers.get("authorization") or ""
+    if auth_header.startswith("Bearer "):
+        return auth_header[7:].strip()
+    x_token = request.headers.get("x-admin-token")
+    if x_token:
+        return x_token.strip()
+    return request.cookies.get("admin_session")
+
+
+def require_admin(request: Request):
+    """التحقق الإجباري من جلسة المشرف قبل تنفيذ العمليات الحساسة"""
+    token = get_auth_token_from_request(request)
+    if not validate_session_token(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="غير مصرح: يلزم تسجيل الدخول للوحة التحكم."
+        )
+    return True
+
+
+def verify_extraction_access(request: Request):
+    """التحقق من تصريح الدومين ومفتاح الـ API لطلبات الاستخراج"""
+    origin = request.headers.get("origin")
+    referer = request.headers.get("referer")
+    host = request.headers.get("host")
+    api_key = request.headers.get("x-api-key") or request.query_params.get("api_key")
+    auth_token = get_auth_token_from_request(request)
+
+    is_allowed, reason = is_request_authorized(
+        origin=origin,
+        referer=referer,
+        host=host,
+        api_key_header=api_key,
+        auth_token=auth_token
+    )
+    if not is_allowed:
+        logger.warning(f"Unauthorized extraction rejected: origin={origin}, referer={referer}, reason={reason}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=reason
+        )
+
+
+# ===================== REQUEST MODELS =====================
+
 class ExtractRequest(BaseModel):
     url: str = Field(..., description="رابط فيديو اليوتيوب")
+    proxy_streams: Optional[bool] = Field(True, description="تفعيل روابط البث التلقائي السريعة المتجاوزة لخنق السرعة (Chunked Range Proxy)")
 
 
 class CookieUpdateRequest(BaseModel):
@@ -73,6 +144,25 @@ class CookieTestRequest(BaseModel):
     url: Optional[str] = Field("https://www.youtube.com/watch?v=dQw4w9WgXcQ", description="رابط فيديو للاختبار")
 
 
+class LoginRequest(BaseModel):
+    password: str = Field(..., description="كلمة مرور الإدارة")
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(..., description="كلمة المرور الحالية")
+    new_password: str = Field(..., description="كلمة المرور الجديدة")
+
+
+class DomainRequest(BaseModel):
+    domain: str = Field(..., description="اسم الدومين أو رابطه (مثال: my-academy.com أو http://localhost)")
+
+
+class SecuritySettingsUpdateRequest(BaseModel):
+    strict_mode: bool = Field(..., description="تفعيل وضع التحقق الصارم من الدومينات")
+    generate_new_api_key: Optional[bool] = Field(False, description="توليد مفتاح API جديد")
+
+
+
 @app.get("/", tags=["Dashboard & Health"])
 def root_endpoint(request: Request):
     """عرض لوحة التحكم عند الفتح في المتصفح، أو إرجاع معلومات الـ API لطلبات JSON."""
@@ -82,8 +172,8 @@ def root_endpoint(request: Request):
 
     return {
         "status": "online",
-        "service": "YouTube Direct Links Extractor & Cookie Hub API",
-        "version": "1.3.0",
+        "service": "YouTube Direct Links Extractor & Chunked Range Streaming API",
+        "version": "1.4.0",
         "dashboard": "/dashboard",
         "documentation": "/docs",
         "endpoints": {
@@ -98,6 +188,7 @@ def root_endpoint(request: Request):
             "DELETE /api/cookies": "مسح الكوكيز والتحويل لوضع الزائر",
             "POST /api/extract": "استخراج الروابط المباشرة (JSON body)",
             "GET /api/extract": "استخراج الروابط المباشرة (Query param)",
+            "GET /api/stream": "بث الفيديو والصوت مع تقطيع 10MB لتجاوز خنق السرعة ودعم Range والـ Seeking السلس",
             "GET /api/logs": "سجل العمليات والأخطاء الحية",
             "GET /api/debug": "فحص بيئة السيرفر والأدوات"
         }
@@ -110,6 +201,98 @@ def get_dashboard():
     if os.path.exists(DASHBOARD_FILE):
         return FileResponse(DASHBOARD_FILE, media_type="text/html")
     raise HTTPException(status_code=404, detail="Dashboard file not found.")
+
+
+# ===================== AUTHENTICATION & SECURITY ENDPOINTS =====================
+
+@app.post("/api/auth/login", tags=["Security & Auth"])
+def login(payload: LoginRequest, response: Response):
+    """تسجيل الدخول إلى لوحة التحكم والتحقق من كلمة مرور المشرف"""
+    if not verify_admin_password(payload.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="كلمة المرور غير صحيحة."
+        )
+    token = create_session_token()
+    response.set_cookie(
+        key="admin_session",
+        value=token,
+        httponly=True,
+        max_age=7 * 24 * 3600,
+        samesite="lax"
+    )
+    return {
+        "success": True,
+        "token": token,
+        "message": "تم تسجيل الدخول بنجاح."
+    }
+
+
+@app.get("/api/auth/status", tags=["Security & Auth"])
+def check_auth_status(request: Request):
+    """التحقق من حالة جلسة تسجيل الدخول الحالية"""
+    token = get_auth_token_from_request(request)
+    is_auth = validate_session_token(token)
+    return {"authenticated": is_auth}
+
+
+@app.post("/api/auth/logout", tags=["Security & Auth"])
+def logout(request: Request, response: Response):
+    """تسجيل الخروج وإلغاء جلسة المسؤول"""
+    token = get_auth_token_from_request(request)
+    if token:
+        revoke_session_token(token)
+    response.delete_cookie("admin_session")
+    return {"success": True, "message": "تم تسجيل الخروج بنجاح."}
+
+
+@app.get("/api/security/settings", tags=["Security & Auth"])
+def get_sec_settings(request: Request):
+    """استرجاع إعدادات الأمان والدومينات المصرح لها ومفتاح الـ API"""
+    require_admin(request)
+    return get_security_settings()
+
+
+@app.post("/api/security/domains/add", tags=["Security & Auth"])
+def add_domain_endpoint(payload: DomainRequest, request: Request):
+    """إضافة دومين جديد إلى قائمة الدومينات المسموح لها باستخراج الروابط"""
+    require_admin(request)
+    ok, msg, domains = add_allowed_domain(payload.domain)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"success": True, "message": msg, "allowed_domains": domains}
+
+
+@app.post("/api/security/domains/remove", tags=["Security & Auth"])
+def remove_domain_endpoint(payload: DomainRequest, request: Request):
+    """حذف دومين من قائمة الدومينات المسموح لها"""
+    require_admin(request)
+    ok, msg, domains = remove_allowed_domain(payload.domain)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"success": True, "message": msg, "allowed_domains": domains}
+
+
+@app.post("/api/security/settings", tags=["Security & Auth"])
+def update_sec_settings(payload: SecuritySettingsUpdateRequest, request: Request):
+    """تحديث خيارات الأمان (وضع الفحص الصارم وتوليد مفتاح API جديد)"""
+    require_admin(request)
+    res = update_security_preferences(
+        strict_mode=payload.strict_mode,
+        generate_new_api_key=payload.generate_new_api_key or False
+    )
+    return {"success": True, "settings": res}
+
+
+@app.post("/api/security/change-password", tags=["Security & Auth"])
+def change_pwd_endpoint(payload: ChangePasswordRequest, request: Request):
+    """تغيير كلمة مرور لوحة التحكم"""
+    require_admin(request)
+    ok, msg = change_admin_password(payload.old_password, payload.new_password)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"success": True, "message": msg}
+
 
 
 # ===================== MONITORING & AUTO-UPDATER ENDPOINTS =====================
@@ -139,8 +322,9 @@ def get_system_version_info():
 
 
 @app.post("/api/system/update", tags=["Auto-Updater"])
-def trigger_system_update(force: bool = Query(False, description="إجبار التحديث حتى لو كان الإصدار متطابقاً")):
+def trigger_system_update(request: Request, force: bool = Query(False, description="إجبار التحديث حتى لو كان الإصدار متطابقاً")):
     """تحديث مكتبة yt-dlp فورياً إلى أحدث إصدار متاح عبر pip دون الحاجة لإعادة تشغيل الحاوية"""
+    require_admin(request)
     res = run_ytdlp_upgrade(force=force)
     return res
 
@@ -162,13 +346,14 @@ def get_cookie_status():
 
 
 @app.post("/api/cookies/update", tags=["Cookie Hub"])
-def update_cookies(payload: CookieUpdateRequest):
+def update_cookies(payload: CookieUpdateRequest, request: Request):
     """
     تحديث الكوكيز على السيرفر بقبول أي صيغة:
     - مصفوفة JSON من Cookie-Editor أو EditThisCookie
     - أسطر Netscape (ملف cookies.txt)
     - نص ترويسة HTTP (Cookie: ...)
     """
+    require_admin(request)
     try:
         result = save_cookies_content(payload.cookies_text)
         test_result = None
@@ -202,8 +387,9 @@ def test_cookies_live(payload: Optional[CookieTestRequest] = None):
 
 
 @app.delete("/api/cookies", tags=["Cookie Hub"])
-def delete_cookies():
+def delete_cookies(request: Request):
     """مسح ملف الكوكيز الحالي والتحويل الفوري لوضع الزائر (Guest Mode)"""
+    require_admin(request)
     success = clear_cookies_file()
     if success:
         return {"status": "success", "message": "تم تفريغ ملف الكوكيز بنجاح والتحويل لوضع الزائر."}
@@ -258,22 +444,79 @@ def view_logs(raw: bool = Query(False, description="عرض كـ نص خام لل
 
 
 @app.delete("/api/logs", tags=["Diagnostics"])
-def delete_logs():
+def delete_logs(request: Request):
     """مسح سجل العمليات الحية"""
+    require_admin(request)
     clear_logs()
     return {"status": "logs cleared"}
 
 
-# ===================== VIDEO EXTRACTION ENDPOINTS =====================
+# ===================== VIDEO EXTRACTION & STREAMING PROXY ENDPOINTS =====================
 
-def handle_extraction(url: str):
+def get_public_base_url(request: Request) -> str:
+    """
+    تحديد الرابط الأساسي العام للخدمة على Railway مع دعم النطاقات المخصصة وتوجيهات البروكسي العكسي،
+    مع توزيع الأحمال عشوائياً بين البروكسيات في حال وجود أكثر من رابط في STREAM_PROXY_URL.
+    """
+    cf_worker = os.getenv("STREAM_PROXY_URL") or os.getenv("CLOUDFLARE_WORKER_URL")
+    if cf_worker:
+        proxies = [p.strip().rstrip("/") for p in re.split(r'[\s,;]+', cf_worker) if p.strip()]
+        if proxies:
+            return random.choice(proxies)
+
+    env_base = os.getenv("API_BASE_URL") or os.getenv("BASE_URL")
+    if env_base:
+        return env_base.rstrip("/")
+
+    railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN")
+    if railway_domain:
+        return f"https://{railway_domain}".rstrip("/")
+
+    # قراءة ترويسات البروكسي العكسي القياسية (Reverse Proxy)
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    return f"{proto}://{host}".rstrip("/")
+
+
+def handle_extraction(url: str, request: Optional[Request] = None, proxy_streams: bool = True):
     url = url.strip()
     if not url:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="رابط الفيديو مطلوب.")
 
+    # التحقق من صلاحية الدومين ومفتاح الـ API
+    if request:
+        verify_extraction_access(request)
+
     try:
-        logger.info(f"Received extraction request for URL: {url}")
-        return extract_youtube_info(url)
+        logger.info(f"Received extraction request for URL: {url} (proxy_streams={proxy_streams})")
+        data = extract_youtube_info(url)
+
+        # تحويل روابط التدفق إلى روابط بروكسي سريعة تتجاوز خنق السرعة
+        if proxy_streams and request:
+            base_url = get_public_base_url(request)
+            streams_obj = data.get("streams", {})
+
+            for cat_name in ("video_with_audio", "video_only", "audio_only"):
+                format_list = streams_obj.get(cat_name, [])
+                for fmt in format_list:
+                    raw_url = fmt.get("url")
+                    if raw_url and raw_url.startswith("http"):
+                        # الاحتفاظ بالرابط المباشر الأصلي
+                        fmt["direct_url"] = raw_url
+
+                        # بناء رابط البث السريع المقسم لـ 10MB Chunks
+                        proxied_url = build_proxy_url(
+                            base_url=base_url,
+                            direct_url=raw_url,
+                            filesize_bytes=fmt.get("filesize_bytes"),
+                            ext=fmt.get("ext", "mp4"),
+                            is_video=(cat_name != "audio_only")
+                        )
+                        fmt["proxy_url"] = proxied_url
+                        # جعل رابط البث السريع هو الرابط الافتراضي للتشغيل الفوري
+                        fmt["url"] = proxied_url
+
+        return data
     except Exception as e:
         error_msg = str(e)
         logger.error(f"Extraction failed: {error_msg}")
@@ -291,15 +534,127 @@ def handle_extraction(url: str):
 
 
 @app.post("/api/extract", tags=["Extractor"])
-def extract_post(request_data: ExtractRequest):
-    """استخراج الروابط المباشرة المؤقتة لجميع الجودات عبر طلب POST."""
-    return handle_extraction(request_data.url)
+def extract_post(request_data: ExtractRequest, request: Request):
+    """استخراج الروابط المباشرة المؤقتة لجميع الجودات عبر طلب POST مع دعم البث السريع التلقائي."""
+    use_proxy = True if request_data.proxy_streams is None else request_data.proxy_streams
+    return handle_extraction(request_data.url, request=request, proxy_streams=use_proxy)
 
 
 @app.get("/api/extract", tags=["Extractor"])
-def extract_get(url: str = Query(..., description="رابط فيديو اليوتيوب")):
+def extract_get(
+    request: Request,
+    url: str = Query(..., description="رابط فيديو اليوتيوب"),
+    proxy_streams: bool = Query(True, description="تفعيل روابط البث السريع المقسمة (Proxy Streams)")
+):
     """استخراج الروابط المباشرة المؤقتة لجميع الجودات عبر طلب GET."""
-    return handle_extraction(url)
+    return handle_extraction(url, request=request, proxy_streams=proxy_streams)
+
+
+@app.options("/api/stream", tags=["Streaming Proxy"])
+def options_stream():
+    """الاستجابة لطلبات Preflight CORS لضمان تشغيل الفيديو دون حظر في كافة المتصفحات"""
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "Range, Content-Type, Accept, Origin, User-Agent",
+            "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges, Content-Type",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
+
+
+@app.get("/api/stream", tags=["Streaming Proxy"])
+@app.head("/api/stream", tags=["Streaming Proxy"])
+async def stream_media(
+    request: Request,
+    url: str = Query(..., description="رابط googlevideo المباشر المراد بثه بتقطيع ذكي لتجاوز خنق السرعة"),
+    size: Optional[int] = Query(None, description="إجمالي حجم الملف بالبايت إن توفر مسبقاً"),
+    mime: Optional[str] = Query(None, description="نوع الميديا اختياري (مثل video/mp4 أو audio/mp4)")
+):
+    """
+    بث الفيديو أو الصوت عبر تقنية Bounded Range Chunks (10MB):
+    - يتجاوز خنق السرعة (Throttling) الذي يفرضه يوتيوب على المتصفحات (~32KB/s).
+    - يدعم الـ Seeking الفوري بدون إعادة تحميل الملف بالكامل.
+    - يدعم استجابات HTTP 206 Partial Content القياسية.
+    - استهلاك رام منعدم (Zero Memory Buffer) وسرعة فائقة.
+    """
+    url = url.strip()
+    if not url or not url.startswith("http"):
+        raise HTTPException(status_code=400, detail="رابط الفيديو المباشر غير صالح.")
+
+    try:
+        total_size, content_type = await get_stream_metadata(url, hint_size=size, hint_mime=mime)
+    except Exception as e:
+        logger.error(f"Failed to probe metadata for stream: {e}")
+        raise HTTPException(status_code=502, detail=f"فشل الاتصال بمصدر الفيديو: {str(e)}")
+
+    base_headers = {
+        "Content-Type": content_type,
+        "Accept-Ranges": "bytes",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Headers": "Range, Content-Type, Accept, Origin, User-Agent",
+        "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges, Content-Type",
+        "Cache-Control": "public, max-age=3600"
+    }
+
+    # التعامل مع طلبات HEAD (فحص مسبق من المشغل)
+    if request.method == "HEAD":
+        if total_size > 0:
+            base_headers["Content-Length"] = str(total_size)
+        return Response(status_code=200, headers=base_headers)
+
+    range_header = request.headers.get("range")
+    if range_header:
+        start, end = parse_range_header(range_header, total_size)
+        if start is None:
+            start = 0
+            end = (total_size - 1) if total_size > 0 else None
+
+        if total_size > 0 and start >= total_size:
+            err_headers = {
+                "Content-Range": f"bytes */{total_size}",
+                "Accept-Ranges": "bytes",
+                "Access-Control-Allow-Origin": "*"
+            }
+            return Response(status_code=416, headers=err_headers)
+
+        if end is None and total_size > 0:
+            end = total_size - 1
+
+        if end is None:
+            end = start + DEFAULT_CHUNK_SIZE - 1
+
+        content_length = end - start + 1
+        content_range = f"bytes {start}-{end}/{total_size if total_size > 0 else '*'}"
+
+        resp_headers = {
+            **base_headers,
+            "Content-Range": content_range,
+            "Content-Length": str(content_length),
+        }
+
+        return StreamingResponse(
+            stream_chunked_response(url, start_byte=start, end_byte=end),
+            status_code=status.HTTP_206_PARTIAL_CONTENT,
+            headers=resp_headers,
+            media_type=content_type
+        )
+    else:
+        # طلب بدون Range (GET كامل)
+        end = (total_size - 1) if total_size > 0 else (DEFAULT_CHUNK_SIZE * 50)
+        resp_headers = {**base_headers}
+        if total_size > 0:
+            resp_headers["Content-Length"] = str(total_size)
+
+        return StreamingResponse(
+            stream_chunked_response(url, start_byte=0, end_byte=end),
+            status_code=status.HTTP_200_OK,
+            headers=resp_headers,
+            media_type=content_type
+        )
 
 
 if __name__ == "__main__":

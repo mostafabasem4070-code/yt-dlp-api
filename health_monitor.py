@@ -182,6 +182,7 @@ def check_cookies_component() -> Dict[str, Any]:
         "has_auth": analysis["has_auth"],
         "auth_cookies_found": analysis["auth_cookies_found"],
         "days_until_expiry": analysis.get("days_until_expiry", 0),
+        "expiry_human": analysis.get("expiry_human", "--"),
         "earliest_expiry_readable": analysis.get("earliest_expiry_readable"),
         "message": analysis["message"],
         "badge": badge

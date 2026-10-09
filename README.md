@@ -8,13 +8,14 @@
 
 ```text
 ├── main.py              # خادم FastAPI، نقاط النهاية، ولوحة التحكم
+├── stream_service.py    # محرك البث المقسم 10MB Chunks لتجاوز خنق السرعة ودعم Range/Seeking
 ├── health_monitor.py    # مركز مراقبة صحة وتشخيص مكونات النظام الستة
 ├── updater_service.py   # خدمة التحديث التلقائي الدوري لـ yt-dlp كل 12 ساعة
 ├── youtube_service.py   # محرك الاستخراج yt-dlp وحل التحديات البرمجية
 ├── cookie_manager.py    # مدير الكوكيز الذكي والتحويل التلقائي لجميع الصيغ (JSON / Netscape)
 ├── static/
 │   └── dashboard.html   # واجهة التحكم التفاعلية ومركز المراقبة الشامل
-├── requirements.txt     # مكتبات بايثون المطلوبة
+├── requirements.txt     # مكتبات بايثون المطلوبة (بما فيها httpx)
 ├── Dockerfile           # ملف تشغيل الحاوية لـ Railway (يشمل ffmpeg و Deno و Node 20 LTS)
 ├── Procfile             # خيار بديل للتشغيل عبر Buildpacks
 ├── railway.json         # إعدادات النشر على منصة Railway
@@ -138,6 +139,14 @@ async function getDirectLinks(youtubeUrl) {
 ```text
 https://your-app.up.railway.app/api/extract?url=https://www.youtube.com/watch?v=dQw4w9WgXcQ
 ```
+
+### 3. نقطة البث السريع المتجاوز لخنق السرعة (Streaming Proxy)
+- **الرابط**: `https://your-app.up.railway.app/api/stream?url=<ENCODED_DIRECT_URL>`
+- **كيف يعمل؟**
+  - يقوم تلقائياً بطلب الفيديو من خوادم `googlevideo.com` على هيئة أجزاء مغلقة الحجم (10MB Range Chunks) تماماً كتقنية `yt-dlp --http-chunk-size 10M`.
+  - يتجاوز خنق السرعة (Throttling ~32KB/s) الذي يفرضه يوتيوب على المتصفحات في الطلبات المفتوحة.
+  - يدعم معيار `HTTP 206 Partial Content` والقفز بالوقت (Seeking) والتشغيل السلس لأي جودة (1080p, 2K, 4K) واستهلاك الذاكرة يكاد ينعدم (Zero RAM Buffer).
+  - الروابط المعادة في حقل `url` من `/api/extract` تكون تلقائياً مجهزة للاستخدام المباشر مع هذا المسار، مع بقاء الرابط الأصلي في `direct_url`.
 
 ---
 

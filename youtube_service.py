@@ -114,45 +114,70 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
 
 def extract_youtube_info(url: str) -> Dict[str, Any]:
     """
-    استخراج تفاصيل الفيديو والروابط المباشرة المؤقتة مع آلية ذكية متعددة المراحل
-    لتجاوز أخطاء البوت أو انتهاء الكوكيز بأفضل أداء ممكن.
+    استخراج تفاصيل الفيديو والروابط المباشرة المؤقتة مع آلية متطورة متعددة المراحل
+    لتجاوز أخطاء البوت أو انتهاء الكوكيز بأفضل أداء ممكن عبر مشغلات بديلة (tv_embedded, android_vr, web_embedded).
     """
     info = None
     last_error = None
-    strategy_used = "cookies"
+    strategy_used = "unknown"
 
-    # الاستراتيجية الأولى: الاستخراج الكامل مع الكوكيز النشطة وحل التحديات عبر Node
-    try:
-        logger.info(f"Strategy 1: Full extraction with cookies for URL: {url}")
-        info = _run_yt_dlp(url, use_cookies=True)
-        strategy_used = "cookies_standard"
-    except Exception as e:
-        last_error = e
-        err_str = str(e)
-        logger.warning(f"Strategy 1 failed with error: {err_str}")
+    # مرحلة 1: المحاولة باستخدام الكوكيز النشطة إذا كانت متوفرة على القرص
+    cookie_path = get_cookie_file_path()
+    has_cookies = bool(cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 10)
 
-        # إذا كان الخطأ متعلق بإعادة تحميل الصفحة أو طلب تسجيل الدخول أو تحدي بوت
-        if "The page needs to be reloaded" in err_str or "Sign in to confirm" in err_str or "Please sign in" in err_str:
-            # الاستراتيجية الثانية: محاولة استخدام عملاء ويب مدمجين
-            try:
-                logger.info("Strategy 2: Retrying with web_embedded and android clients...")
-                info = _run_yt_dlp(url, use_cookies=True, custom_clients=['web_embedded', 'android'])
-                strategy_used = "cookies_fallback_client"
-            except Exception as e2:
-                last_error = e2
-                logger.warning(f"Strategy 2 failed: {str(e2)}")
+    if has_cookies:
+        try:
+            logger.info(f"Strategy 1 (Cookies Standard): Full extraction with cookies for URL: {url}")
+            info = _run_yt_dlp(url, use_cookies=True)
+            strategy_used = "cookies_standard"
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Strategy 1 (Cookies) failed: {e}")
 
-                # الاستراتيجية الثالثة: محاولة كزائر بدون كوكيز (غالباً تنجح للفيديوهات العامة حتى لو الكوكيز منتهية)
-                try:
-                    logger.info("Strategy 3: Retrying in guest mode without cookies...")
-                    info = _run_yt_dlp(url, use_cookies=False)
-                    strategy_used = "guest_no_cookies"
-                except Exception as e3:
-                    last_error = e3
-                    logger.error(f"Strategy 3 failed: {str(e3)}")
+    # مرحلة 2: إذا فشلت الكوكيز أو لم تكن متوفرة، تجربة مشغل tv_embedded بدون كوكيز
+    # مشغل التلفاز الذكي يتميز بقدرته على تجاوز فحص البوت الخاص بالمتصفحات واستخراج حتى 1080p60
+    if not info:
+        try:
+            logger.info(f"Strategy 2 (TV Embedded Guest): Retrying with tv_embedded without cookies...")
+            info = _run_yt_dlp(url, use_cookies=False, custom_clients=['tv_embedded'])
+            strategy_used = "tv_embedded_guest"
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Strategy 2 (TV Embedded) failed: {e}")
+
+    # مرحلة 3: تجربة مشغلات الواقع الافتراضي والهاتف android_vr و android بدون كوكيز
+    # تطبيقات الهاتف تستخدم واجهات API مختلفة تماماً عن متصفحات الويب
+    if not info:
+        try:
+            logger.info(f"Strategy 3 (Android VR/Mobile Guest): Retrying with android_vr, android without cookies...")
+            info = _run_yt_dlp(url, use_cookies=False, custom_clients=['android_vr', 'android'])
+            strategy_used = "android_vr_guest"
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Strategy 3 (Android VR) failed: {e}")
+
+    # مرحلة 4: تجربة مشغل web_embedded بدون كوكيز
+    if not info:
+        try:
+            logger.info(f"Strategy 4 (Web Embedded Guest): Retrying with web_embedded without cookies...")
+            info = _run_yt_dlp(url, use_cookies=False, custom_clients=['web_embedded'])
+            strategy_used = "web_embedded_guest"
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Strategy 4 (Web Embedded) failed: {e}")
+
+    # مرحلة 5: المحاولة كزائر افتراضي (Pure Guest fallback)
+    if not info:
+        try:
+            logger.info(f"Strategy 5 (Generic Guest): Retrying as standard guest...")
+            info = _run_yt_dlp(url, use_cookies=False)
+            strategy_used = "guest_default"
+        except Exception as e:
+            last_error = e
+            logger.error(f"Strategy 5 (Generic Guest) failed: {e}")
 
     if not info:
-        raise last_error or RuntimeError("Failed to extract video information.")
+        raise last_error or RuntimeError("Failed to extract video information across all fallback strategies.")
 
     # معالجة وتنظيم بيانات الفيديو والجودات
     video_id = info.get("id")

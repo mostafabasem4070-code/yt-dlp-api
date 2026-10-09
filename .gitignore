@@ -9,3 +9,4 @@ ENV/
 .idea/
 .vscode/
 *.log
+security_config.json
