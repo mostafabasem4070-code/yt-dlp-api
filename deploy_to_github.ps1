@@ -218,7 +218,7 @@ function Show-DeployGui {
             $cMsg = $txtCommit.Text.Trim()
             if (-not $cMsg) { $cMsg = $defaultMsg }
             &$appendLog "[*] Committing changes: $cMsg"
-            $commitOut = git commit -m $cMsg 2>&1
+            $commitOut = git commit --allow-empty -m $cMsg 2>&1
             &$appendLog ($commitOut -join [Environment]::NewLine)
 
             # git push
@@ -378,7 +378,7 @@ Write-Host "[*] Adding all files (git add --all)..." -ForegroundColor Cyan
 git add --all
 
 Write-Host "[*] Committing changes (git commit)..." -ForegroundColor Cyan
-$commitOutput = git commit -m $commitMsg 2>&1
+$commitOutput = git commit --allow-empty -m $commitMsg 2>&1
 Write-Host ($commitOutput -join [Environment]::NewLine) -ForegroundColor DarkGray
 
 Write-Host ""
