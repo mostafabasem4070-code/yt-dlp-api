@@ -72,6 +72,10 @@ def _load_config() -> Dict[str, Any]:
         "strict_mode": env_strict,
         "api_key": default_api_key,
         "worker_pool": [],
+        "force_ipv6": False,
+        "use_oauth2": False,
+        "po_token": "",
+        "visitor_data": "",
         "updated_at": int(time.time())
     }
     _save_config(cfg)
@@ -266,7 +270,11 @@ def get_security_settings() -> Dict[str, Any]:
         "api_key": cfg.get("api_key", ""),
         "worker_pool": cfg.get("worker_pool", []),
         "updated_at": cfg.get("updated_at", 0),
-        "active_sessions_count": len(_ACTIVE_SESSIONS)
+        "active_sessions_count": len(_ACTIVE_SESSIONS),
+        "force_ipv6": cfg.get("force_ipv6", False),
+        "use_oauth2": cfg.get("use_oauth2", False),
+        "po_token": cfg.get("po_token", ""),
+        "visitor_data": cfg.get("visitor_data", "")
     }
 
 
@@ -311,7 +319,15 @@ def remove_allowed_domain(domain: str) -> Tuple[bool, str, List[str]]:
     return True, f"تم حذف الدومين بنجاح.", domains
 
 
-def update_security_preferences(strict_mode: bool, allowed_domains: Optional[List[str]] = None, generate_new_api_key: bool = False) -> Dict[str, Any]:
+def update_security_preferences(
+    strict_mode: bool, 
+    allowed_domains: Optional[List[str]] = None, 
+    generate_new_api_key: bool = False,
+    force_ipv6: Optional[bool] = None,
+    use_oauth2: Optional[bool] = None,
+    po_token: Optional[str] = None,
+    visitor_data: Optional[str] = None
+) -> Dict[str, Any]:
     """تحديث خيارات الأمان ووضع الفحص الصارم ومفتاح الـ API"""
     cfg = _load_config()
     cfg["strict_mode"] = bool(strict_mode)
@@ -324,6 +340,15 @@ def update_security_preferences(strict_mode: bool, allowed_domains: Optional[Lis
 
     if generate_new_api_key:
         cfg["api_key"] = f"sec_{secrets.token_hex(16)}"
+
+    if force_ipv6 is not None:
+        cfg["force_ipv6"] = force_ipv6
+    if use_oauth2 is not None:
+        cfg["use_oauth2"] = use_oauth2
+    if po_token is not None:
+        cfg["po_token"] = po_token.strip()
+    if visitor_data is not None:
+        cfg["visitor_data"] = visitor_data.strip()
 
     _save_config(cfg)
     return get_security_settings()

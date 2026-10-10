@@ -555,7 +555,46 @@
                                     <div style="font-weight:700; color:var(--text-main); font-size:0.92rem;">الوضع الصارم (Strict Whitelist Mode)</div>
                                     <div style="font-size:0.78rem; color:var(--text-muted);">حظر أي طلب لا يحتوي ترويسة Origin أو Referer مطابقة تماماً للقائمة.</div>
                                 </div>
-                                <input type="checkbox" id="strictModeToggle" style="width:22px; height:22px; cursor:pointer;" onchange="handleToggleStrict(this.checked)">
+                                <input type="checkbox" id="strictModeToggle" style="width:22px; height:22px; cursor:pointer;" onchange="handleToggleAdvancedSettings()">
+                            </div>
+                        </div>
+
+                        <!-- Advanced Settings (IPv6, OAuth2, PO Token) -->
+                        <div class="card" style="margin-top: 24px;">
+                            <div class="card-header">
+                                <div class="card-header-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                                    <span>إعدادات متقدمة (Advanced Bypass Settings)</span>
+                                </div>
+                                <button class="btn-action primary" onclick="handleSaveAdvancedSettings()">
+                                    <span>حفظ التعديلات</span>
+                                </button>
+                            </div>
+                            
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                                <div>
+                                    <div style="font-weight:700; color:var(--text-main); font-size:0.92rem;">تفعيل IPv6 الإجباري (Force IPv6)</div>
+                                    <div style="font-size:0.78rem; color:var(--text-muted);">يجبر الأداة على استخدام IPv6 لتخطي حظر الـ IP. (يجب تفعيله من Railway أيضاً)</div>
+                                </div>
+                                <input type="checkbox" id="forceIpv6Toggle" style="width:22px; height:22px; cursor:pointer;">
+                            </div>
+
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; padding-top:14px; border-top:1px solid var(--border-subtle);">
+                                <div>
+                                    <div style="font-weight:700; color:var(--text-main); font-size:0.92rem;">استخدام OAuth2 (بدل الكوكيز)</div>
+                                    <div style="font-size:0.78rem; color:var(--text-muted);">تفعيل المصادقة عبر OAuth2 (قد تتطلب مصادقة المتصفح في السجل).</div>
+                                </div>
+                                <input type="checkbox" id="useOauth2Toggle" style="width:22px; height:22px; cursor:pointer;">
+                            </div>
+
+                            <div style="margin-bottom:16px; padding-top:14px; border-top:1px solid var(--border-subtle);">
+                                <div style="font-weight:700; color:var(--text-main); font-size:0.92rem; margin-bottom:8px;">إعدادات PO Token و Visitor Data (لتخطي BotGuard)</div>
+                                <div class="form-group" style="margin-bottom: 10px;">
+                                    <input type="text" id="poTokenInput" class="form-input" placeholder="PO Token (مثال: MnQ3...)">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <input type="text" id="visitorDataInput" class="form-input" placeholder="Visitor Data">
+                                </div>
                             </div>
                         </div>
 
@@ -736,6 +775,10 @@
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                                     <span>قائمة خوادم Cloudflare Workers (Worker Pool)</span>
                                 </div>
+                                <button class="btn-action cyan" onclick="handleCopyAllWorkers()">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    <span>نسخ جميع الروابط</span>
+                                </button>
                             </div>
 
                             <p style="color:var(--text-muted); font-size:0.86rem; margin-bottom:14px; line-height:1.5;">
@@ -747,10 +790,10 @@
                                 <!-- Populated dynamically by JS -->
                             </div>
 
-                            <div class="input-inline-wrap">
-                                <input type="text" id="newWorkerInput" placeholder="اكتب رابط الـ Worker هنا (يجب أن يبدأ بـ https://)" onkeydown="if(event.key==='Enter') handleAddWorker()">
-                                <button class="btn-action primary" onclick="handleAddWorker()">
-                                    <span>+ إضافة Worker</span>
+                            <div class="form-group" style="margin-top: 10px;">
+                                <textarea id="newWorkerInput" class="form-input" rows="4" placeholder="اكتب روابط الـ Worker هنا (رابط في كل سطر، ويجب أن تبدأ بـ https://)..." style="resize: vertical; min-height: 80px;"></textarea>
+                                <button class="btn-action primary" style="margin-top: 10px; width: 100%; justify-content: center;" onclick="handleAddWorker()">
+                                    <span>+ إضافة جميع الروابط</span>
                                 </button>
                             </div>
                         </div>

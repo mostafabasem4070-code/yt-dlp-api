@@ -24,6 +24,19 @@ async function loadSecuritySettings() {
             apiKeyEl.textContent = data.api_key || 'غير متوفر';
         }
 
+        // 4. Update Advanced Settings
+        const forceIpv6Toggle = document.getElementById('forceIpv6Toggle');
+        if (forceIpv6Toggle) forceIpv6Toggle.checked = !!data.force_ipv6;
+        
+        const useOauth2Toggle = document.getElementById('useOauth2Toggle');
+        if (useOauth2Toggle) useOauth2Toggle.checked = !!data.use_oauth2;
+        
+        const poTokenInput = document.getElementById('poTokenInput');
+        if (poTokenInput) poTokenInput.value = data.po_token || '';
+        
+        const visitorDataInput = document.getElementById('visitorDataInput');
+        if (visitorDataInput) visitorDataInput.value = data.visitor_data || '';
+
         renderDomainChips(domains);
         
         // 4. عرض قائمة Workers
@@ -133,28 +146,43 @@ function renderWorkerChips(workers) {
 
 async function handleAddWorker() {
     const input = document.getElementById('newWorkerInput');
-    const url = input.value.trim();
-    if (!url) {
-        showToast('يرجى كتابة رابط الـ Worker أولاً.', 'error');
+    const text = input.value.trim();
+    if (!text) {
+        showToast('يرجى كتابة روابط الـ Worker أولاً.', 'error');
         return;
     }
 
-    try {
-        const res = await apiFetch('/api/security/workers/add', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: url })
-        });
-        const data = await res.json();
-        if (res.ok) {
-            showToast(data.message);
-            input.value = '';
-            renderWorkerChips(data.worker_pool);
-        } else {
-            showToast(data.detail || 'فشل إضافة الرابط.', 'error');
+    const urls = text.split(/\r?\n/).map(u => u.trim()).filter(u => u.length > 0);
+    if (urls.length === 0) return;
+
+    let addedCount = 0;
+    let lastData = null;
+
+    showToast('جارِ إضافة الروابط...');
+
+    for (const url of urls) {
+        try {
+            const res = await apiFetch('/api/security/workers/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                addedCount++;
+                lastData = data;
+            }
+        } catch (e) {
+            console.error('Failed to add worker:', url, e);
         }
-    } catch (e) {
-        showToast('تعذر الاتصال بالخادم.', 'error');
+    }
+
+    if (addedCount > 0 && lastData) {
+        showToast(`تمت إضافة ${addedCount} روابط Worker بنجاح.`);
+        input.value = '';
+        renderWorkerChips(lastData.worker_pool);
+    } else {
+        showToast('فشل إضافة الروابط.', 'error');
     }
 }
 
@@ -178,24 +206,69 @@ async function handleRemoveWorker(url) {
         showToast('تعذر الاتصال بالخادم.', 'error');
     }
 }
-async function handleToggleStrict(checked) {
+
+async function handleCopyAllWorkers() {
+    try {
+        const res = await apiFetch('/api/security/settings');
+        const data = await res.json();
+        const workers = data.worker_pool || [];
+        if (workers.length === 0) {
+            showToast('لا توجد روابط لنسخها.', 'error');
+            return;
+        }
+        const text = workers.join('\n');
+        
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast('تم نسخ جميع الروابط بنجاح!');
+        } catch (err) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast('تم نسخ جميع الروابط للحافظة!');
+        }
+    } catch (e) {
+        showToast('تعذر جلب الروابط لنسخها.', 'error');
+    }
+}
+async function handleToggleAdvancedSettings() {
+    // Collect all values
+    const isStrict = document.getElementById('strictModeToggle') ? document.getElementById('strictModeToggle').checked : false;
+    const isForceIpv6 = document.getElementById('forceIpv6Toggle') ? document.getElementById('forceIpv6Toggle').checked : false;
+    const isUseOauth2 = document.getElementById('useOauth2Toggle') ? document.getElementById('useOauth2Toggle').checked : false;
+    const poToken = document.getElementById('poTokenInput') ? document.getElementById('poTokenInput').value.trim() : '';
+    const visitorData = document.getElementById('visitorDataInput') ? document.getElementById('visitorDataInput').value.trim() : '';
+
     try {
         const res = await apiFetch('/api/security/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ strict_mode: checked })
+            body: JSON.stringify({ 
+                strict_mode: isStrict,
+                force_ipv6: isForceIpv6,
+                use_oauth2: isUseOauth2,
+                po_token: poToken,
+                visitor_data: visitorData
+            })
         });
         const data = await res.json();
         if (res.ok) {
-            showToast(checked ? 'تم تفعيل وضع التحقق الصارم من الدومينات!' : 'تم تعطيل وضع التحقق الصارم.');
+            showToast('تم حفظ الإعدادات بنجاح!');
             loadSecuritySettings();
             if (window.loadOverview) loadOverview();
         } else {
             showToast(data.detail || 'فشل حفظ الإعدادات.', 'error');
         }
     } catch (e) {
-        showToast('فشل تعديل الوضع الصارم.', 'error');
+        showToast('فشل التعديل.', 'error');
     }
+}
+
+async function handleSaveAdvancedSettings() {
+    await handleToggleAdvancedSettings();
 }
 
 async function copyApiKey() {
@@ -321,7 +394,9 @@ window.handleAddDomain = handleAddDomain;
 window.handleRemoveDomain = handleRemoveDomain;
 window.handleAddWorker = handleAddWorker;
 window.handleRemoveWorker = handleRemoveWorker;
-window.handleToggleStrict = handleToggleStrict;
+window.handleCopyAllWorkers = handleCopyAllWorkers;
+window.handleToggleAdvancedSettings = handleToggleAdvancedSettings;
+window.handleSaveAdvancedSettings = handleSaveAdvancedSettings;
 window.copyApiKey = copyApiKey;
 window.handleRegenerateApiKey = handleRegenerateApiKey;
 window.handleTestDomain = handleTestDomain;

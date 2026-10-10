@@ -188,6 +188,10 @@ class WorkerRequest(BaseModel):
 class SecuritySettingsUpdateRequest(BaseModel):
     strict_mode: bool = Field(..., description="تفعيل وضع التحقق الصارم من الدومينات")
     generate_new_api_key: Optional[bool] = Field(False, description="توليد مفتاح API جديد")
+    force_ipv6: Optional[bool] = Field(None, description="إجبار استخدام IPv6")
+    use_oauth2: Optional[bool] = Field(None, description="تفعيل OAuth2")
+    po_token: Optional[str] = Field(None, description="PO Token")
+    visitor_data: Optional[str] = Field(None, description="Visitor Data")
 
 
 
@@ -303,7 +307,11 @@ def update_sec_settings(payload: SecuritySettingsUpdateRequest, request: Request
     """تحديث خيارات الأمان (وضع الفحص الصارم وتوليد مفتاح API جديد)"""
     res = update_security_preferences(
         strict_mode=payload.strict_mode,
-        generate_new_api_key=payload.generate_new_api_key or False
+        generate_new_api_key=payload.generate_new_api_key or False,
+        force_ipv6=payload.force_ipv6,
+        use_oauth2=payload.use_oauth2,
+        po_token=payload.po_token,
+        visitor_data=payload.visitor_data
     )
     return {"success": True, "settings": res}
 

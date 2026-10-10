@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Optional
 import yt_dlp
 from log_manager import YtDlpLogger
 from cookie_manager import get_active_cookie_path, save_cookies_content, analyze_cookies_health, read_active_cookies
+from security_manager import get_security_settings
 
 logger = logging.getLogger("youtube_service")
 
@@ -74,8 +75,22 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
         },
-        'remote_components': {'ejs:github'}
+        'remote_components': {'ejs:github'},
+        'sleep_interval_requests': 1,
+        'max_sleep_interval_requests': 3
     }
+    
+    sec_cfg = get_security_settings()
+
+    if sec_cfg.get("force_ipv6"):
+        ydl_opts['source_address'] = '::'
+        ydl_opts['force_ipv6'] = True
+        logger.info("Using forced IPv6.")
+
+    if sec_cfg.get("use_oauth2"):
+        ydl_opts['username'] = 'oauth2'
+        ydl_opts['password'] = ''
+        logger.info("Using OAuth2 authentication.")
 
     import tempfile
     import uuid
@@ -99,13 +114,23 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
     else:
         logger.info("Explicitly attempting extraction without cookies (guest mode).")
 
+    extractor_args_youtube = {}
+    
     if custom_clients:
-        ydl_opts['extractor_args'] = {
-            'youtube': {
-                'player_client': custom_clients
-            }
-        }
+        extractor_args_youtube['player_client'] = custom_clients
         logger.info(f"Using custom player_clients: {custom_clients}")
+
+    po_token = sec_cfg.get("po_token")
+    visitor_data = sec_cfg.get("visitor_data")
+    if po_token and visitor_data:
+        extractor_args_youtube['po_token'] = [f"web+{po_token}"]
+        extractor_args_youtube['visitor_data'] = [visitor_data]
+        logger.info("Injected manual PO Token and Visitor Data.")
+
+    if extractor_args_youtube:
+        ydl_opts['extractor_args'] = {
+            'youtube': extractor_args_youtube
+        }
 
     proxy = os.getenv("YOUTUBE_PROXY") or os.getenv("HTTP_PROXY")
     if proxy:
