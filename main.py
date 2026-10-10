@@ -55,7 +55,9 @@ from security_manager import (
     update_security_preferences,
     regenerate_api_key,
     test_domain_authorization,
-    is_request_authorized
+    is_request_authorized,
+    add_worker_url,
+    remove_worker_url
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -179,6 +181,10 @@ class DomainRequest(BaseModel):
     domain: str = Field(..., description="اسم الدومين أو رابطه (مثال: my-academy.com أو http://localhost)")
 
 
+class WorkerRequest(BaseModel):
+    url: str = Field(..., description="رابط الـ Cloudflare Worker (مثال: https://my-worker.workers.dev)")
+
+
 class SecuritySettingsUpdateRequest(BaseModel):
     strict_mode: bool = Field(..., description="تفعيل وضع التحقق الصارم من الدومينات")
     generate_new_api_key: Optional[bool] = Field(False, description="توليد مفتاح API جديد")
@@ -300,6 +306,24 @@ def update_sec_settings(payload: SecuritySettingsUpdateRequest, request: Request
         generate_new_api_key=payload.generate_new_api_key or False
     )
     return {"success": True, "settings": res}
+
+
+@app.post("/api/security/workers/add", tags=["Security & Auth"])
+def add_worker_endpoint(payload: WorkerRequest, request: Request, admin: bool = Depends(require_admin)):
+    """إضافة Cloudflare Worker جديد إلى القائمة"""
+    ok, msg, pool = add_worker_url(payload.url)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"success": True, "message": msg, "worker_pool": pool}
+
+
+@app.post("/api/security/workers/remove", tags=["Security & Auth"])
+def remove_worker_endpoint(payload: WorkerRequest, request: Request, admin: bool = Depends(require_admin)):
+    """حذف Cloudflare Worker من القائمة"""
+    ok, msg, pool = remove_worker_url(payload.url)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"success": True, "message": msg, "worker_pool": pool}
 
 
 @app.post("/api/security/change-password", tags=["Security & Auth"])
@@ -540,30 +564,21 @@ async def handle_extraction(url: str, request: Optional[Request] = None, proxy_s
         logger.info(f"Received extraction request for URL: {url} (proxy_streams={proxy_streams})")
         data = await asyncio.to_thread(extract_youtube_info, url)
 
-        # تحويل روابط التدفق إلى روابط بروكسي سريعة تتجاوز خنق السرعة
-        if proxy_streams and request:
-            base_url = get_public_base_url(request)
-            streams_obj = data.get("streams", {})
+        # إضافة الـ Worker Pool للرد عشان لارافل يستلم القائمة ويدير التوزيع العشوائي
+        sec_settings = get_security_settings()
+        data["worker_pool"] = sec_settings.get("worker_pool", [])
 
-            for cat_name in ("video_with_audio", "video_only", "audio_only"):
-                format_list = streams_obj.get(cat_name, [])
-                for fmt in format_list:
-                    raw_url = fmt.get("url")
-                    if raw_url and raw_url.startswith("http"):
-                        # الاحتفاظ بالرابط المباشر الأصلي
-                        fmt["direct_url"] = raw_url
-
-                        # بناء رابط البث السريع المقسم لـ 10MB Chunks
-                        proxied_url = build_proxy_url(
-                            base_url=base_url,
-                            direct_url=raw_url,
-                            filesize_bytes=fmt.get("filesize_bytes"),
-                            ext=fmt.get("ext", "mp4"),
-                            is_video=(cat_name != "audio_only")
-                        )
-                        fmt["proxy_url"] = proxied_url
-                        # جعل رابط البث السريع هو الرابط الافتراضي للتشغيل الفوري
-                        fmt["url"] = proxied_url
+        # تم إزالة بناء الروابط هنا لتجنب التغليف المزدوج. 
+        # الروابط سترسل خام إلى لارافل وهو سيتولى تغليفها بناءً على الـ worker_pool.
+        
+        # التأكد من توفر direct_url لجميع الجودات
+        streams_obj = data.get("streams", {})
+        for cat_name in ("video_with_audio", "video_only", "audio_only"):
+            format_list = streams_obj.get(cat_name, [])
+            for fmt in format_list:
+                raw_url = fmt.get("url")
+                if raw_url and raw_url.startswith("http"):
+                    fmt["direct_url"] = raw_url
 
         extraction_cache[cache_key] = data
         return data

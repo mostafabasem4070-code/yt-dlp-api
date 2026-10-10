@@ -25,6 +25,10 @@ async function loadSecuritySettings() {
         }
 
         renderDomainChips(domains);
+        
+        // 4. عرض قائمة Workers
+        const workers = data.worker_pool || [];
+        renderWorkerChips(workers);
 
     } catch (err) {
         console.error('Failed to load security settings:', err);
@@ -104,6 +108,76 @@ async function handleRemoveDomain(domain) {
     }
 }
 
+function renderWorkerChips(workers) {
+    const container = document.getElementById('workerChipsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!workers || workers.length === 0) {
+        container.innerHTML = '<span style="color:var(--text-muted); font-size:0.85rem;">لا توجد خوادم Worker مضافة. النظام يعتمد على الروابط الأصلية.</span>';
+        return;
+    }
+
+    workers.forEach(w => {
+        const chip = document.createElement('div');
+        chip.className = `domain-chip`;
+        chip.style.backgroundColor = 'rgba(6, 182, 212, 0.1)';
+        chip.style.borderColor = 'var(--accent-cyan)';
+        chip.innerHTML = `
+            <span>${w}</span>
+            <button class="btn-remove-chip" onclick="handleRemoveWorker('${w}')" title="حذف">&times;</button>
+        `;
+        container.appendChild(chip);
+    });
+}
+
+async function handleAddWorker() {
+    const input = document.getElementById('newWorkerInput');
+    const url = input.value.trim();
+    if (!url) {
+        showToast('يرجى كتابة رابط الـ Worker أولاً.', 'error');
+        return;
+    }
+
+    try {
+        const res = await apiFetch('/api/security/workers/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: url })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast(data.message);
+            input.value = '';
+            renderWorkerChips(data.worker_pool);
+        } else {
+            showToast(data.detail || 'فشل إضافة الرابط.', 'error');
+        }
+    } catch (e) {
+        showToast('تعذر الاتصال بالخادم.', 'error');
+    }
+}
+
+async function handleRemoveWorker(url) {
+    if (!confirm(`هل تريد بالتأكيد حذف Worker (${url}) من القائمة؟`)) return;
+
+    try {
+        const res = await apiFetch('/api/security/workers/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: url })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast(data.message);
+            renderWorkerChips(data.worker_pool);
+        } else {
+            showToast(data.detail || 'فشل حذف الرابط.', 'error');
+        }
+    } catch (e) {
+        showToast('تعذر الاتصال بالخادم.', 'error');
+    }
+}
 async function handleToggleStrict(checked) {
     try {
         const res = await apiFetch('/api/security/settings', {
@@ -245,6 +319,8 @@ async function handleChangePassword(e) {
 window.loadSecuritySettings = loadSecuritySettings;
 window.handleAddDomain = handleAddDomain;
 window.handleRemoveDomain = handleRemoveDomain;
+window.handleAddWorker = handleAddWorker;
+window.handleRemoveWorker = handleRemoveWorker;
 window.handleToggleStrict = handleToggleStrict;
 window.copyApiKey = copyApiKey;
 window.handleRegenerateApiKey = handleRegenerateApiKey;

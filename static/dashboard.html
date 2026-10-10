@@ -726,14 +726,33 @@
                         </div>
 
                         <p style="color:var(--text-muted); font-size:0.92rem; line-height:1.7; margin-bottom:18px;">
-                            يقوم البروكسي بتمرير قطع الفيديو (10MB Chunks) مباشرة من خوادم GoogleVideo إلى مشغل الطالب عبر شبكة Cloudflare العالمية، مما يوفر سرعة تحميل قصوى ويمنع خنق السرعة تماماً.
+                            يقوم البروكسي بتمرير قطع الفيديو (10MB Chunks) مباشرة من خوادم GoogleVideo إلى مشغل الطالب عبر شبكة Cloudflare العالمية، مما يوفر سرعة تحميل قصوى ويمنع خنق السرعة تماماً. السيرفر سيقوم بإرسال هذه الروابط لمنصة Laravel ليتم توزيع الطلاب عليها عشوائياً.
                         </p>
 
-                        <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:16px;">
-                            <div style="font-weight:700; color:var(--text-main); margin-bottom:8px;">إعداد متغيرات البيئة لربط أكثر من Worker:</div>
-                            <code style="display:block; padding:12px; background:var(--terminal-bg); border-radius:var(--radius-sm); color:#67e8f9; font-family:var(--font-mono); font-size:0.88rem; direction:ltr; text-align:left;">
-                                STREAM_PROXY_URL=https://worker1.yoursub.workers.dev,https://worker2.yoursub.workers.dev
-                            </code>
+                        <!-- Worker URLs Management Card -->
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-header-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                                    <span>قائمة خوادم Cloudflare Workers (Worker Pool)</span>
+                                </div>
+                            </div>
+
+                            <p style="color:var(--text-muted); font-size:0.86rem; margin-bottom:14px; line-height:1.5;">
+                                أضف روابط Workers الخاصة بك هنا لتوزيع الضغط وتجنب الحظر (مثال: <code style="color:var(--text-main);">https://worker1.yoursub.workers.dev</code>).
+                            </p>
+
+                            <!-- Chips Container -->
+                            <div class="domain-chips-box" id="workerChipsContainer" style="margin-bottom: 16px;">
+                                <!-- Populated dynamically by JS -->
+                            </div>
+
+                            <div class="input-inline-wrap">
+                                <input type="text" id="newWorkerInput" placeholder="اكتب رابط الـ Worker هنا (يجب أن يبدأ بـ https://)" onkeydown="if(event.key==='Enter') handleAddWorker()">
+                                <button class="btn-action primary" onclick="handleAddWorker()">
+                                    <span>+ إضافة Worker</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </section>

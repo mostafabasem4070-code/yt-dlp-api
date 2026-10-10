@@ -47,6 +47,9 @@ def _load_config() -> Dict[str, Any]:
                 if "api_key" not in cfg or not cfg["api_key"]:
                     cfg["api_key"] = os.getenv("API_KEY") or f"sec_{secrets.token_hex(16)}"
                     _save_config(cfg)
+                if "worker_pool" not in cfg:
+                    cfg["worker_pool"] = []
+                    _save_config(cfg)
                 return cfg
         except Exception as e:
             logger.error(f"Failed to load security config: {e}")
@@ -68,6 +71,7 @@ def _load_config() -> Dict[str, Any]:
         "allowed_domains": allowed_domains,
         "strict_mode": env_strict,
         "api_key": default_api_key,
+        "worker_pool": [],
         "updated_at": int(time.time())
     }
     _save_config(cfg)
@@ -260,6 +264,7 @@ def get_security_settings() -> Dict[str, Any]:
         "allowed_domains": domains,
         "strict_mode": cfg.get("strict_mode", False),
         "api_key": cfg.get("api_key", ""),
+        "worker_pool": cfg.get("worker_pool", []),
         "updated_at": cfg.get("updated_at", 0),
         "active_sessions_count": len(_ACTIVE_SESSIONS)
     }
@@ -322,6 +327,39 @@ def update_security_preferences(strict_mode: bool, allowed_domains: Optional[Lis
 
     _save_config(cfg)
     return get_security_settings()
+
+# ===================== WORKER POOL MANAGEMENT =====================
+
+def add_worker_url(url: str) -> Tuple[bool, str, List[str]]:
+    """إضافة رابط Cloudflare Worker جديد للقائمة"""
+    clean = url.strip().rstrip("/")
+    if not clean or not clean.startswith("http"):
+        return False, "الرابط غير صالح. يجب أن يبدأ بـ http أو https.", []
+
+    cfg = _load_config()
+    pool = cfg.get("worker_pool", [])
+
+    if clean in pool:
+        return True, "الرابط موجود بالفعل في القائمة.", pool
+
+    pool.append(clean)
+    cfg["worker_pool"] = pool
+    _save_config(cfg)
+    return True, f"تمت إضافة الرابط ({clean}) بنجاح.", pool
+
+def remove_worker_url(url: str) -> Tuple[bool, str, List[str]]:
+    """حذف رابط Cloudflare Worker من القائمة"""
+    clean = url.strip().rstrip("/")
+    cfg = _load_config()
+    pool = cfg.get("worker_pool", [])
+
+    if clean not in pool:
+        return False, "الرابط غير موجود في القائمة.", pool
+
+    pool = [w for w in pool if w != clean]
+    cfg["worker_pool"] = pool
+    _save_config(cfg)
+    return True, "تم حذف الرابط بنجاح.", pool
 
 
 def regenerate_api_key() -> str:
