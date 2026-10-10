@@ -211,8 +211,8 @@ function Show-DeployGui {
             }
 
             # git add
-            &$appendLog "[*] Adding modified files (git add .)..."
-            git add .
+            &$appendLog "[*] Adding all files (git add --all)..."
+            git add --all
 
             # git commit
             $cMsg = $txtCommit.Text.Trim()
@@ -274,6 +274,14 @@ if (-not $gitCheck) {
 }
 
 $gitVer = (git --version).Trim()
+
+# Auto-configure git user/email if missing to prevent silent commit failures
+$gitEmail = git config --global user.email 2>$null
+$gitName = git config --global user.name 2>$null
+if (-not $gitEmail -or -not $gitName) {
+    git config --global user.name "GitHub Deployer"
+    git config --global user.email "deployer@localhost"
+}
 
 # Initialize local repo if it doesn't exist
 if (-not (Test-Path ".git")) {
@@ -366,11 +374,12 @@ if ([string]::IsNullOrWhiteSpace($commitMsg)) {
 
 # Staging & Committing
 Write-Host ""
-Write-Host "[*] Staging files (git add .)..." -ForegroundColor Cyan
-git add .
+Write-Host "[*] Adding all files (git add --all)..." -ForegroundColor Cyan
+git add --all
 
 Write-Host "[*] Committing changes (git commit)..." -ForegroundColor Cyan
-git commit -m $commitMsg
+$commitOutput = git commit -m $commitMsg 2>&1
+Write-Host ($commitOutput -join [Environment]::NewLine) -ForegroundColor DarkGray
 
 Write-Host ""
 Write-Host "[*] Pushing to GitHub (main branch)..." -ForegroundColor Cyan
