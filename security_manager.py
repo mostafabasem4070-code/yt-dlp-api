@@ -7,15 +7,13 @@ import secrets
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from urllib.parse import urlparse
-from passlib.context import CryptContext
+import bcrypt
 
 logger = logging.getLogger("security_manager")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, "security_config.json")
 SESSIONS_FILE = os.path.join(BASE_DIR, "sessions.json")
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Session store loaded from file
 _ACTIVE_SESSIONS: Dict[str, Dict[str, Any]] = {}
@@ -55,7 +53,7 @@ def _load_config() -> Dict[str, Any]:
 
     # القيم الافتراضية مع قراءة متغيرات البيئة إن وجدت
     env_password = os.getenv("ADMIN_PASSWORD") or os.getenv("DASHBOARD_PASSWORD") or "97351294m"
-    hashed_pwd = pwd_context.hash(env_password)
+    hashed_pwd = bcrypt.hashpw(env_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
     env_domains_raw = os.getenv("ALLOWED_DOMAINS", "*")
     allowed_domains = [d.strip() for d in env_domains_raw.split(",") if d.strip()]
@@ -106,13 +104,13 @@ def verify_admin_password(password: str) -> bool:
         test_hash = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
         if hmac.compare_digest(stored_hash, test_hash):
             # تحديث الهاش للصيغة الجديدة فوراً
-            cfg["admin_password_hash"] = pwd_context.hash(password)
+            cfg["admin_password_hash"] = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             _save_config(cfg)
             return True
         return False
 
     try:
-        return pwd_context.verify(password, stored_hash)
+        return bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
     except Exception:
         return False
 
@@ -126,7 +124,7 @@ def change_admin_password(old_password: str, new_password: str) -> Tuple[bool, s
         return False, "كلمة المرور الجديدة يجب أن تتكون من 6 أحرف على الأقل."
 
     cfg = _load_config()
-    hashed_pwd = pwd_context.hash(new_password)
+    hashed_pwd = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     cfg["admin_password_hash"] = hashed_pwd
     _save_config(cfg)
     
