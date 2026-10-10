@@ -7,24 +7,37 @@ import secrets
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from urllib.parse import urlparse
+from passlib.context import CryptContext
 
 logger = logging.getLogger("security_manager")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, "security_config.json")
+SESSIONS_FILE = os.path.join(BASE_DIR, "sessions.json")
 
-# In-memory session store: token -> { "created_at": float, "expires_at": float }
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Session store loaded from file
 _ACTIVE_SESSIONS: Dict[str, Dict[str, Any]] = {}
 SESSION_TTL_SECONDS = 7 * 24 * 3600  # 7 days
 
+def _load_sessions():
+    global _ACTIVE_SESSIONS
+    if os.path.exists(SESSIONS_FILE):
+        try:
+            with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
+                _ACTIVE_SESSIONS = json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load sessions: {e}")
 
-def _hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
-    """تشفير كلمة المرور باستخدام SHA-256 مع Salt عشوائي آمن"""
-    if not salt:
-        salt = secrets.token_hex(16)
-    hashed = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
-    return hashed, salt
+def _save_sessions():
+    try:
+        with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(_ACTIVE_SESSIONS, f)
+    except Exception as e:
+        logger.error(f"Failed to save sessions: {e}")
 
+_load_sessions()
 
 def _load_config() -> Dict[str, Any]:
     """تحميل إعدادات الأمان والدومينات من الملف أو إنشاء الإعدادات الافتراضية"""
@@ -42,7 +55,7 @@ def _load_config() -> Dict[str, Any]:
 
     # القيم الافتراضية مع قراءة متغيرات البيئة إن وجدت
     env_password = os.getenv("ADMIN_PASSWORD") or os.getenv("DASHBOARD_PASSWORD") or "97351294m"
-    hashed_pwd, salt = _hash_password(env_password)
+    hashed_pwd = pwd_context.hash(env_password)
 
     env_domains_raw = os.getenv("ALLOWED_DOMAINS", "*")
     allowed_domains = [d.strip() for d in env_domains_raw.split(",") if d.strip()]
@@ -54,7 +67,6 @@ def _load_config() -> Dict[str, Any]:
 
     cfg = {
         "admin_password_hash": hashed_pwd,
-        "salt": salt,
         "allowed_domains": allowed_domains,
         "strict_mode": env_strict,
         "api_key": default_api_key,
@@ -82,15 +94,27 @@ def verify_admin_password(password: str) -> bool:
     """التحقق من صحة كلمة مرور الإدارة"""
     cfg = _load_config()
     stored_hash = cfg.get("admin_password_hash", "")
-    salt = cfg.get("salt", "")
 
     # فحص أيضاً كلمة المرور من متغير البيئة مباشرة إن تغيرت في Railway
     env_pwd = os.getenv("ADMIN_PASSWORD") or os.getenv("DASHBOARD_PASSWORD")
     if env_pwd and password == env_pwd:
         return True
 
-    test_hash, _ = _hash_password(password, salt)
-    return hmac.compare_digest(stored_hash, test_hash)
+    # التوافقية مع الهاش القديم SHA256 (مؤقتاً) إذا كان لا يبدأ بصيغة bcrypt
+    if stored_hash and not stored_hash.startswith("$2"):
+        salt = cfg.get("salt", "")
+        test_hash = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+        if hmac.compare_digest(stored_hash, test_hash):
+            # تحديث الهاش للصيغة الجديدة فوراً
+            cfg["admin_password_hash"] = pwd_context.hash(password)
+            _save_config(cfg)
+            return True
+        return False
+
+    try:
+        return pwd_context.verify(password, stored_hash)
+    except Exception:
+        return False
 
 
 def change_admin_password(old_password: str, new_password: str) -> Tuple[bool, str]:
@@ -102,13 +126,13 @@ def change_admin_password(old_password: str, new_password: str) -> Tuple[bool, s
         return False, "كلمة المرور الجديدة يجب أن تتكون من 6 أحرف على الأقل."
 
     cfg = _load_config()
-    hashed_pwd, salt = _hash_password(new_password)
+    hashed_pwd = pwd_context.hash(new_password)
     cfg["admin_password_hash"] = hashed_pwd
-    cfg["salt"] = salt
     _save_config(cfg)
     
     # تفريغ الجلسات الحالية لإجبار إعادة تسجيل الدخول
     _ACTIVE_SESSIONS.clear()
+    _save_sessions()
     return True, "تم تغيير كلمة المرور بنجاح."
 
 
@@ -120,6 +144,7 @@ def create_session_token() -> str:
         "created_at": now,
         "expires_at": now + SESSION_TTL_SECONDS
     }
+    _save_sessions()
     return token
 
 
@@ -134,6 +159,7 @@ def validate_session_token(token: Optional[str]) -> bool:
 
     if time.time() > session.get("expires_at", 0):
         _ACTIVE_SESSIONS.pop(token, None)
+        _save_sessions()
         return False
 
     return True
@@ -141,7 +167,8 @@ def validate_session_token(token: Optional[str]) -> bool:
 
 def revoke_session_token(token: str) -> None:
     """تسجيل الخروج وإلغاء الجلسة"""
-    _ACTIVE_SESSIONS.pop(token, None)
+    if _ACTIVE_SESSIONS.pop(token, None):
+        _save_sessions()
 
 
 # ===================== DOMAIN WHITELIST & ORIGIN VALIDATION =====================

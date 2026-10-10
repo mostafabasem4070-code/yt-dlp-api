@@ -7,11 +7,19 @@ import re
 import random
 from typing import Optional
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Query, Request, status, Response
+from fastapi import FastAPI, HTTPException, Query, Request, status, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from cachetools import TTLCache
+
+limiter = Limiter(key_func=get_remote_address)
+extraction_cache = TTLCache(maxsize=500, ttl=3600)  # 1 hour cache
 
 from log_manager import get_recent_logs, clear_logs, setup_logging_capture
 from youtube_service import extract_youtube_info, get_cookie_file_path, test_cookie_health_live
@@ -81,11 +89,14 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Can be tightened based on allowed_domains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ربط مجلد الملفات الثابتة (CSS, JS, Assets)
 if os.path.exists(STATIC_DIR):
@@ -258,16 +269,14 @@ def logout(request: Request, response: Response):
 
 
 @app.get("/api/security/settings", tags=["Security & Auth"])
-def get_sec_settings(request: Request):
+def get_sec_settings(request: Request, admin: bool = Depends(require_admin)):
     """استرجاع إعدادات الأمان والدومينات المصرح لها ومفتاح الـ API"""
-    require_admin(request)
     return get_security_settings()
 
 
 @app.post("/api/security/domains/add", tags=["Security & Auth"])
-def add_domain_endpoint(payload: DomainRequest, request: Request):
+def add_domain_endpoint(payload: DomainRequest, request: Request, admin: bool = Depends(require_admin)):
     """إضافة دومين جديد إلى قائمة الدومينات المسموح لها باستخراج الروابط"""
-    require_admin(request)
     ok, msg, domains = add_allowed_domain(payload.domain)
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
@@ -275,9 +284,8 @@ def add_domain_endpoint(payload: DomainRequest, request: Request):
 
 
 @app.post("/api/security/domains/remove", tags=["Security & Auth"])
-def remove_domain_endpoint(payload: DomainRequest, request: Request):
+def remove_domain_endpoint(payload: DomainRequest, request: Request, admin: bool = Depends(require_admin)):
     """حذف دومين من قائمة الدومينات المسموح لها"""
-    require_admin(request)
     ok, msg, domains = remove_allowed_domain(payload.domain)
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
@@ -285,9 +293,8 @@ def remove_domain_endpoint(payload: DomainRequest, request: Request):
 
 
 @app.post("/api/security/settings", tags=["Security & Auth"])
-def update_sec_settings(payload: SecuritySettingsUpdateRequest, request: Request):
+def update_sec_settings(payload: SecuritySettingsUpdateRequest, request: Request, admin: bool = Depends(require_admin)):
     """تحديث خيارات الأمان (وضع الفحص الصارم وتوليد مفتاح API جديد)"""
-    require_admin(request)
     res = update_security_preferences(
         strict_mode=payload.strict_mode,
         generate_new_api_key=payload.generate_new_api_key or False
@@ -296,9 +303,8 @@ def update_sec_settings(payload: SecuritySettingsUpdateRequest, request: Request
 
 
 @app.post("/api/security/change-password", tags=["Security & Auth"])
-def change_pwd_endpoint(payload: ChangePasswordRequest, request: Request):
+def change_pwd_endpoint(payload: ChangePasswordRequest, request: Request, admin: bool = Depends(require_admin)):
     """تغيير كلمة مرور لوحة التحكم"""
-    require_admin(request)
     ok, msg = change_admin_password(payload.old_password, payload.new_password)
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
@@ -306,9 +312,8 @@ def change_pwd_endpoint(payload: ChangePasswordRequest, request: Request):
 
 
 @app.post("/api/security/api-key/regenerate", tags=["Security & Auth"])
-def regenerate_api_key_endpoint(request: Request):
+def regenerate_api_key_endpoint(request: Request, admin: bool = Depends(require_admin)):
     """توليد مفتاح API جديد فورياً لربطه مع منصة Laravel في .env"""
-    require_admin(request)
     new_key = regenerate_api_key()
     return {
         "success": True,
@@ -318,9 +323,8 @@ def regenerate_api_key_endpoint(request: Request):
 
 
 @app.post("/api/security/domains/test", tags=["Security & Auth"])
-def test_domain_endpoint(payload: DomainRequest, request: Request):
+def test_domain_endpoint(payload: DomainRequest, request: Request, admin: bool = Depends(require_admin)):
     """فحص واختبار دومين أو رابط للتحقق مما إذا كان مصرحاً له أم محظوراً"""
-    require_admin(request)
     return test_domain_authorization(payload.domain)
 
 
@@ -360,9 +364,8 @@ def get_system_version_info():
 
 
 @app.post("/api/system/update", tags=["Auto-Updater"])
-def trigger_system_update(request: Request, force: bool = Query(False, description="إجبار التحديث حتى لو كان الإصدار متطابقاً")):
+def trigger_system_update(request: Request, force: bool = Query(False, description="إجبار التحديث حتى لو كان الإصدار متطابقاً"), admin: bool = Depends(require_admin)):
     """تحديث مكتبة yt-dlp فورياً إلى أحدث إصدار متاح عبر pip دون الحاجة لإعادة تشغيل الحاوية"""
-    require_admin(request)
     res = run_ytdlp_upgrade(force=force)
     return res
 
@@ -385,14 +388,13 @@ def get_cookie_status():
 
 
 @app.post("/api/cookies/update", tags=["Cookie Hub"])
-def update_cookies(payload: CookieUpdateRequest, request: Request):
+def update_cookies(payload: CookieUpdateRequest, request: Request, admin: bool = Depends(require_admin)):
     """
     تحديث الكوكيز على السيرفر بقبول أي صيغة:
     - مصفوفة JSON من Cookie-Editor أو EditThisCookie
     - أسطر Netscape (ملف cookies.txt)
     - نص ترويسة HTTP (Cookie: ...)
     """
-    require_admin(request)
     try:
         result = save_cookies_content(payload.cookies_text)
         test_result = None
@@ -426,9 +428,8 @@ def test_cookies_live(payload: Optional[CookieTestRequest] = None):
 
 
 @app.delete("/api/cookies", tags=["Cookie Hub"])
-def delete_cookies(request: Request):
+def delete_cookies(request: Request, admin: bool = Depends(require_admin)):
     """مسح ملف الكوكيز الحالي والتحويل الفوري لوضع الزائر (Guest Mode)"""
-    require_admin(request)
     success = clear_cookies_file()
     if success:
         return {"status": "success", "message": "تم تفريغ ملف الكوكيز بنجاح والتحويل لوضع الزائر."}
@@ -488,9 +489,8 @@ def view_logs(
 
 
 @app.delete("/api/logs", tags=["Diagnostics"])
-def delete_logs(request: Request):
+def delete_logs(request: Request, admin: bool = Depends(require_admin)):
     """مسح سجل العمليات الحية"""
-    require_admin(request)
     clear_logs()
     return {"status": "logs cleared"}
 
@@ -522,7 +522,7 @@ def get_public_base_url(request: Request) -> str:
     return f"{proto}://{host}".rstrip("/")
 
 
-def handle_extraction(url: str, request: Optional[Request] = None, proxy_streams: bool = True):
+async def handle_extraction(url: str, request: Optional[Request] = None, proxy_streams: bool = True):
     url = url.strip()
     if not url:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="رابط الفيديو مطلوب.")
@@ -531,9 +531,14 @@ def handle_extraction(url: str, request: Optional[Request] = None, proxy_streams
     if request:
         verify_extraction_access(request)
 
+    cache_key = f"{url}_{proxy_streams}"
+    if cache_key in extraction_cache:
+        logger.info(f"Returning cached extraction for {url}")
+        return extraction_cache[cache_key]
+
     try:
         logger.info(f"Received extraction request for URL: {url} (proxy_streams={proxy_streams})")
-        data = extract_youtube_info(url)
+        data = await asyncio.to_thread(extract_youtube_info, url)
 
         # تحويل روابط التدفق إلى روابط بروكسي سريعة تتجاوز خنق السرعة
         if proxy_streams and request:
@@ -560,6 +565,7 @@ def handle_extraction(url: str, request: Optional[Request] = None, proxy_streams
                         # جعل رابط البث السريع هو الرابط الافتراضي للتشغيل الفوري
                         fmt["url"] = proxied_url
 
+        extraction_cache[cache_key] = data
         return data
     except Exception as e:
         error_msg = str(e)
@@ -578,20 +584,22 @@ def handle_extraction(url: str, request: Optional[Request] = None, proxy_streams
 
 
 @app.post("/api/extract", tags=["Extractor"])
-def extract_post(request_data: ExtractRequest, request: Request):
+@limiter.limit("20/minute")
+async def extract_post(request_data: ExtractRequest, request: Request):
     """استخراج الروابط المباشرة المؤقتة لجميع الجودات عبر طلب POST مع دعم البث السريع التلقائي."""
     use_proxy = True if request_data.proxy_streams is None else request_data.proxy_streams
-    return handle_extraction(request_data.url, request=request, proxy_streams=use_proxy)
+    return await handle_extraction(request_data.url, request=request, proxy_streams=use_proxy)
 
 
 @app.get("/api/extract", tags=["Extractor"])
-def extract_get(
+@limiter.limit("20/minute")
+async def extract_get(
     request: Request,
     url: str = Query(..., description="رابط فيديو اليوتيوب"),
     proxy_streams: bool = Query(True, description="تفعيل روابط البث السريع المقسمة (Proxy Streams)")
 ):
     """استخراج الروابط المباشرة المؤقتة لجميع الجودات عبر طلب GET."""
-    return handle_extraction(url, request=request, proxy_streams=proxy_streams)
+    return await handle_extraction(url, request=request, proxy_streams=proxy_streams)
 
 
 @app.options("/api/stream", tags=["Streaming Proxy"])
