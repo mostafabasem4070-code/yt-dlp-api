@@ -48,9 +48,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # تثبيت متصفح Chromium لـ Playwright (لميزة استخراج الكوكيز تلقائياً)
 RUN playwright install chromium --with-deps || true
 
-# تحميل وتخزين مكتبة فك التحديات مسبقاً لضمان عملها فورياً دون الحاجة لتنزيلها أثناء تشغيل السيرفر
-RUN mkdir -p /root/.cache/yt-dlp/challenge-solver \
-    && (curl -fsSL -o /root/.cache/yt-dlp/challenge-solver/lib.json https://github.com/yt-dlp/ejs/releases/latest/download/yt.solver.lib.min.js || true)
+# نسخ وتجهيز كاش مكتبة فك التحديات (challenge-solver) لضمان عمل Deno فورياً دون الحاجة لتنزيلها من GitHub
+RUN mkdir -p /root/.cache/yt-dlp/challenge-solver
+COPY challenge_solver_cache.json /root/.cache/yt-dlp/challenge-solver/lib.json
 
 # نسخ كود المشروع بالكامل
 COPY . .

@@ -16,6 +16,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_COOKIES_FILE = os.path.join(BASE_DIR, "cookies.txt")
 COOKIES_FILE = os.getenv("COOKIES_FILE", DEFAULT_COOKIES_FILE)
 
+import json
+
 # إذا تم تمرير الكوكيز كنص عبر متغير البيئة YOUTUBE_COOKIES (بأي صيغة: JSON أو Netscape)
 env_cookies = os.getenv("YOUTUBE_COOKIES")
 if env_cookies:
@@ -24,6 +26,29 @@ if env_cookies:
         logger.info(f"Successfully loaded and parsed YOUTUBE_COOKIES environment variable (Format: {res.get('detected_format')})")
     except Exception as e:
         logger.warning(f"Could not parse YOUTUBE_COOKIES environment variable: {e}")
+
+
+def _ensure_challenge_solver_cached():
+    """
+    التأكد من تهيئة كاش مكتبة فك التحديات (challenge-solver/lib) محلياً.
+    هذا يضمن أن Deno يحل تحديات n-challenge فوراً دون الحاجة للاتصال بـ GitHub عبر IPv6.
+    """
+    try:
+        bundled_cache = os.path.join(BASE_DIR, "challenge_solver_cache.json")
+        if os.path.exists(bundled_cache):
+            with yt_dlp.YoutubeDL() as ydl:
+                cached = ydl.cache.load("challenge-solver", "lib")
+                if not cached or not isinstance(cached, dict) or not cached.get("code"):
+                    with open(bundled_cache, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    ydl.cache.store("challenge-solver", "lib", data)
+                    logger.info("Successfully populated yt-dlp challenge-solver cache from bundled asset.")
+    except Exception as e:
+        logger.warning(f"Could not initialize challenge-solver cache: {e}")
+
+
+# تهيئة الكاش مسبقاً
+_ensure_challenge_solver_cached()
 
 
 def get_cookie_file_path() -> Optional[str]:
