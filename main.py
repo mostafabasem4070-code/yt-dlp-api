@@ -681,6 +681,14 @@ def get_public_base_url(request: Request) -> str:
     return f"{proto}://{host}".rstrip("/")
 
 
+def extract_canonical_cache_key(url: str, proxy_streams: bool) -> str:
+    """استخراج المعرف الفريد للفيديو (Video ID) لتوحيد مفتاح الكاش حتى لو اختلفت صيغ الروابط (youtu.be أو shorts أو watch?v=)."""
+    m = re.search(r'(?:v=|\/|youtu\.be\/|embed\/|shorts\/)([0-9A-Za-z_-]{11})', url)
+    if m:
+        return f"vid_{m.group(1)}_{proxy_streams}"
+    return f"{url.strip()}_{proxy_streams}"
+
+
 async def handle_extraction(url: str, request: Optional[Request] = None, proxy_streams: bool = True):
     url = url.strip()
     if not url:
@@ -690,10 +698,12 @@ async def handle_extraction(url: str, request: Optional[Request] = None, proxy_s
     if request:
         verify_extraction_access(request)
 
-    cache_key = f"{url}_{proxy_streams}"
+    cache_key = extract_canonical_cache_key(url, proxy_streams)
     if cache_key in extraction_cache:
-        logger.info(f"Returning cached extraction for {url}")
-        return extraction_cache[cache_key]
+        logger.info(f"Returning cached extraction for {url} [Cache Hit: {cache_key}]")
+        cached_data = dict(extraction_cache[cache_key])
+        cached_data["cached"] = True
+        return cached_data
 
     try:
         logger.info(f"Received extraction request for URL: {url} (proxy_streams={proxy_streams})")
@@ -703,9 +713,6 @@ async def handle_extraction(url: str, request: Optional[Request] = None, proxy_s
         sec_settings = get_security_settings()
         data["worker_pool"] = sec_settings.get("worker_pool", [])
 
-        # تم إزالة بناء الروابط هنا لتجنب التغليف المزدوج. 
-        # الروابط سترسل خام إلى لارافل وهو سيتولى تغليفها بناءً على الـ worker_pool.
-        
         # التأكد من توفر direct_url لجميع الجودات
         streams_obj = data.get("streams", {})
         for cat_name in ("video_with_audio", "video_only", "audio_only"):
@@ -715,6 +722,7 @@ async def handle_extraction(url: str, request: Optional[Request] = None, proxy_s
                 if raw_url and raw_url.startswith("http"):
                     fmt["direct_url"] = raw_url
 
+        data["cached"] = False
         extraction_cache[cache_key] = data
         return data
     except Exception as e:
