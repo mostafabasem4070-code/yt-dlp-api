@@ -63,6 +63,36 @@ def _get_js_runtime_config() -> Dict[str, Any]:
     return runtimes
 
 
+def _build_ipv6_opts(sec_cfg: Dict[str, Any], has_cookies: bool) -> Dict[str, Any]:
+    """
+    بناء خيارات IPv6 الذكية الانتقائية:
+    - يستخدم force_ipv6 المدمج في yt-dlp (الذي يدعم dual-stack fallback)
+    - يتجنب source_address='::' الكلي الذي يكسر GitHub وخدمات IPv4-only
+    - عند وجود كوكيز: يسجّل تحذيراً لأن تغيير IP قد يُبطل الجلسة مع YouTube
+    """
+    opts = {}
+    if not sec_cfg.get("force_ipv6"):
+        return opts
+
+    # force_ipv6 في yt-dlp يُفعّل IPv6 لطلبات YouTube فقط مع الحفاظ على
+    # dual-stack fallback لخدمات مثل GitHub (مصدر مكتبات فك التحديات)
+    opts['force_ipv6'] = True
+
+    if has_cookies:
+        # تحذير مهم: إذا كانت الكوكيز مسجّلة من جلسة IPv4، فإن YouTube
+        # قد يرفضها إذا جاء الطلب من عنوان IPv6 مختلف تماماً.
+        # الحل: نبقي force_ipv6 فعّالاً لكن لا نضيف source_address
+        # بحيث يلجأ yt-dlp لـ IPv6 عند توفره ويتراجع لـ IPv4 عند الحاجة.
+        logger.warning(
+            "IPv6 is active with cookies. If YouTube rejects the session, "
+            "disable force_ipv6 or refresh cookies via an IPv6 browser session."
+        )
+    else:
+        logger.info("Selective IPv6 active (guest mode) — YouTube endpoints only, GitHub fallback preserved.")
+
+    return opts
+
+
 def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[List[str]] = None) -> Dict[str, Any]:
     """تنفيذ استخراج yt-dlp بإعدادات متطورة وسجل مخصص وحل التحديات."""
     ydl_opts: Dict[str, Any] = {
@@ -80,23 +110,25 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
         'sleep_interval_requests': 1,
         'max_sleep_interval_requests': 3
     }
-    
+
+    import tempfile
+    import uuid
+    runtime_cookie = None
+
     sec_cfg = get_security_settings()
 
-    if sec_cfg.get("force_ipv6"):
-        # نعتمد على force_ipv6 المدمج في yt-dlp دون إجبار source_address = '::'
-        # لتفادي منع الاتصال بموقع GitHub (الذي يعمل بـ IPv4 فقط) لتحميل سكريبتات فك التحديات
-        ydl_opts['force_ipv6'] = True
-        logger.info("Using forced IPv6 for YouTube endpoints (dual-stack fallback preserved).")
+    # تحديد ما إذا كانت الكوكيز ستُستخدم فعلاً (لاتخاذ قرار IPv6)
+    cookie_path_check = get_cookie_file_path() if use_cookies else None
+    will_use_cookies = bool(use_cookies and cookie_path_check and os.path.exists(cookie_path_check))
+
+    # تطبيق خيارات IPv6 الانتقائية الذكية
+    ipv6_opts = _build_ipv6_opts(sec_cfg, has_cookies=will_use_cookies)
+    ydl_opts.update(ipv6_opts)
 
     if sec_cfg.get("use_oauth2"):
         ydl_opts['username'] = 'oauth2'
         ydl_opts['password'] = ''
         logger.info("Using OAuth2 authentication.")
-
-    import tempfile
-    import uuid
-    runtime_cookie = None
 
     # إعداد محرك JavaScript إن وجد
     js_conf = _get_js_runtime_config()
@@ -104,20 +136,19 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
         ydl_opts['js_runtimes'] = js_conf
 
     if use_cookies:
-        cookie_path = get_cookie_file_path()
-        if cookie_path:
+        if will_use_cookies:
             # إنشاء نسخة مؤقتة لتجنب تعارض القراءة/الكتابة المتزامن وتلف ملف الكوكيز
             runtime_cookie = os.path.join(tempfile.gettempdir(), f"yt_cookies_{uuid.uuid4().hex}.txt")
-            shutil.copy2(cookie_path, runtime_cookie)
+            shutil.copy2(cookie_path_check, runtime_cookie)
             ydl_opts['cookiefile'] = runtime_cookie
-            logger.info(f"Using cookies from: {cookie_path} (copied to runtime)")
+            logger.info(f"Using cookies from: {cookie_path_check} (copied to runtime)")
         else:
             logger.info("Cookie file requested but none found on disk; proceeding as guest.")
     else:
         logger.info("Explicitly attempting extraction without cookies (guest mode).")
 
     extractor_args_youtube = {}
-    
+
     if custom_clients:
         extractor_args_youtube['player_client'] = custom_clients
         logger.info(f"Using custom player_clients: {custom_clients}")

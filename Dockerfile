@@ -5,12 +5,29 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# تثبيت الأدوات الأساسية ومكتبة ffmpeg
+# تثبيت الأدوات الأساسية ومكتبة ffmpeg ومكتبات Chromium (Playwright)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ffmpeg \
     ca-certificates \
     gnupg \
+    # مكتبات Chromium المطلوبة لـ Playwright
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libdbus-1-3 \
+    libatspi2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # تثبيت Node.js 20 LTS الحديث (اللازم لـ yt-dlp لدعم --permission وحل تحديات n-challenge)
@@ -26,6 +43,9 @@ WORKDIR /app
 # تثبيت مكتبات بايثون أولاً للاستفادة من Docker Cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# تثبيت متصفح Chromium لـ Playwright (لميزة استخراج الكوكيز تلقائياً)
+RUN playwright install chromium --with-deps || true
 
 # تحميل وتخزين مكتبة فك التحديات مسبقاً لضمان عملها فورياً دون الحاجة لتنزيلها أثناء تشغيل السيرفر
 RUN mkdir -p /root/.cache/yt-dlp/challenge-solver \

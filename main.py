@@ -59,6 +59,12 @@ from security_manager import (
     add_worker_url,
     remove_worker_url
 )
+from google_auth_service import (
+    start_google_login_session,
+    cancel_auth_session,
+    get_auth_session_status,
+    get_playwright_status
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -466,6 +472,59 @@ def delete_cookies(request: Request, admin: bool = Depends(require_admin)):
     if success:
         return {"status": "success", "message": "تم تفريغ ملف الكوكيز بنجاح والتحويل لوضع الزائر."}
     raise HTTPException(status_code=500, detail="فشل مسح ملف الكوكيز.")
+
+
+# ===================== GOOGLE AUTH (BROWSER-BASED COOKIE EXTRACTION) =====================
+
+class GoogleLoginRequest(BaseModel):
+    timeout_minutes: int = Field(10, ge=2, le=30, description="الحد الأقصى للانتظار (دقائق)")
+    headless: bool = Field(False, description="تشغيل المتصفح بدون واجهة (يحتاج VNC على السيرفر)")
+
+
+@app.get("/api/auth/google/status", tags=["Cookie Hub"])
+def google_auth_status(request: Request, admin: bool = Depends(require_admin)):
+    """الحصول على حالة جلسة تسجيل الدخول الجارية وتوفّر Playwright"""
+    return get_playwright_status()
+
+
+@app.post("/api/auth/google/start", tags=["Cookie Hub"])
+async def google_auth_start(payload: GoogleLoginRequest, request: Request, admin: bool = Depends(require_admin)):
+    """
+    بدء جلسة تسجيل دخول Google/YouTube تلقائية.
+    يُشغّل متصفح Chromium على السيرفر مع انتظار إتمام تسجيل الدخول،
+    ثم يستخرج الكوكيز ويحفظها تلقائياً من نفس الـ IP.
+    """
+    result = await start_google_login_session(
+        timeout_minutes=payload.timeout_minutes,
+        headless=payload.headless,
+        target_url="https://accounts.google.com/ServiceLogin?service=youtube&hl=ar"
+    )
+    return result
+
+
+@app.post("/api/auth/google/cancel", tags=["Cookie Hub"])
+async def google_auth_cancel(request: Request, admin: bool = Depends(require_admin)):
+    """إلغاء جلسة تسجيل الدخول الجارية"""
+    return await cancel_auth_session()
+
+
+@app.get("/api/auth/google/poll", tags=["Cookie Hub"])
+def google_auth_poll(request: Request, admin: bool = Depends(require_admin)):
+    """استطلاع حالة جلسة تسجيل الدخول الجارية (للـ polling من الـ frontend)"""
+    session = get_auth_session_status()
+    # إذا اكتملت بنجاح، نُحدّث عداد الكوكيز في الواجهة
+    extra = {}
+    if session["status"] == "done":
+        try:
+            from cookie_manager import read_active_cookies, analyze_cookies_health
+            cookies, _ = read_active_cookies()
+            health = analyze_cookies_health(cookies)
+            extra["cookie_health"] = health
+        except Exception:
+            pass
+    return {"session": session, **extra}
+
+
 
 
 # ===================== DIAGNOSTICS & LOGS ENDPOINTS =====================

@@ -47,6 +47,7 @@ function switchNavTab(tabId, tabTitle, navBtn) {
         if (window.loadSecuritySettings) loadSecuritySettings();
     } else if (tabId === 'tab-cookies') {
         if (window.loadCookieStatus) loadCookieStatus();
+        if (window.loadGoogleAuthStatus) loadGoogleAuthStatus();
     } else if (tabId === 'tab-logs') {
         if (window.loadServerLogs) loadServerLogs();
     }
