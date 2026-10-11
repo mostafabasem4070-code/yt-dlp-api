@@ -5,12 +5,13 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# تثبيت الأدوات الأساسية ومكتبة ffmpeg ومكتبات Chromium (Playwright)
+# تثبيت الأدوات الأساسية ومكتبة ffmpeg وخادم الشاشة الافتراضية ومكتبات Chromium (Playwright)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ffmpeg \
     ca-certificates \
     gnupg \
+    xvfb \
     # مكتبات Chromium المطلوبة لـ Playwright
     libnss3 \
     libatk1.0-0 \

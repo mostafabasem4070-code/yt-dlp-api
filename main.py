@@ -63,7 +63,13 @@ from google_auth_service import (
     start_google_login_session,
     cancel_auth_session,
     get_auth_session_status,
-    get_playwright_status
+    get_playwright_status,
+    capture_browser_screenshot,
+    browser_mouse_click,
+    browser_keyboard_type,
+    browser_keyboard_key,
+    browser_reload_page,
+    browser_manual_extract
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -477,20 +483,34 @@ def delete_cookies(request: Request, admin: bool = Depends(require_admin)):
 # ===================== GOOGLE AUTH (BROWSER-BASED COOKIE EXTRACTION) =====================
 
 class GoogleLoginRequest(BaseModel):
-    timeout_minutes: int = Field(10, ge=2, le=30, description="الحد الأقصى للانتظار (دقائق)")
-    headless: bool = Field(False, description="تشغيل المتصفح بدون واجهة (يحتاج VNC على السيرفر)")
+    timeout_minutes: int = Field(15, ge=2, le=30, description="الحد الأقصى للانتظار (دقائق)")
+    headless: Optional[bool] = Field(None, description="وضع التشغيل (تلقائي/يدوي)")
+
+
+class GoogleClickRequest(BaseModel):
+    x: int = Field(..., description="إحداثي X للنقر")
+    y: int = Field(..., description="إحداثي Y للنقر")
+
+
+class GoogleTypeRequest(BaseModel):
+    text: str = Field(..., description="النص المراد كتابته")
+    enter: bool = Field(False, description="الضغط على Enter بعد الكتابة")
+
+
+class GoogleKeyRequest(BaseModel):
+    key: str = Field(..., description="اسم المفتاح (Enter, Backspace, Tab...)")
 
 
 @app.get("/api/auth/google/status", tags=["Cookie Hub"])
 def google_auth_status(request: Request, admin: bool = Depends(require_admin)):
-    """الحصول على حالة جلسة تسجيل الدخول الجارية وتوفّر Playwright"""
+    """الحصول على حالة جلسة تسجيل الدخول الجارية وتوفّر Playwright وخادم Xvfb"""
     return get_playwright_status()
 
 
 @app.post("/api/auth/google/start", tags=["Cookie Hub"])
 async def google_auth_start(payload: GoogleLoginRequest, request: Request, admin: bool = Depends(require_admin)):
     """
-    بدء جلسة تسجيل دخول Google/YouTube تلقائية.
+    بدء جلسة تسجيل دخول Google/YouTube تفاعلية.
     يُشغّل متصفح Chromium على السيرفر مع انتظار إتمام تسجيل الدخول،
     ثم يستخرج الكوكيز ويحفظها تلقائياً من نفس الـ IP.
     """
@@ -504,7 +524,7 @@ async def google_auth_start(payload: GoogleLoginRequest, request: Request, admin
 
 @app.post("/api/auth/google/cancel", tags=["Cookie Hub"])
 async def google_auth_cancel(request: Request, admin: bool = Depends(require_admin)):
-    """إلغاء جلسة تسجيل الدخول الجارية"""
+    """إلغاء جلسة تسجيل الدخول الجارية وإغلاق المتصفح"""
     return await cancel_auth_session()
 
 
@@ -512,7 +532,6 @@ async def google_auth_cancel(request: Request, admin: bool = Depends(require_adm
 def google_auth_poll(request: Request, admin: bool = Depends(require_admin)):
     """استطلاع حالة جلسة تسجيل الدخول الجارية (للـ polling من الـ frontend)"""
     session = get_auth_session_status()
-    # إذا اكتملت بنجاح، نُحدّث عداد الكوكيز في الواجهة
     extra = {}
     if session["status"] == "done":
         try:
@@ -523,6 +542,42 @@ def google_auth_poll(request: Request, admin: bool = Depends(require_admin)):
         except Exception:
             pass
     return {"session": session, **extra}
+
+
+@app.get("/api/auth/google/screenshot", tags=["Cookie Hub"])
+async def google_auth_screenshot(request: Request, admin: bool = Depends(require_admin)):
+    """التقاط لقطة شاشة حية من متصفح السيرفر للبث التفاعلي"""
+    return await capture_browser_screenshot()
+
+
+@app.post("/api/auth/google/click", tags=["Cookie Hub"])
+async def google_auth_click(payload: GoogleClickRequest, request: Request, admin: bool = Depends(require_admin)):
+    """إرسال نقرة ماوس إلى صفحة المتصفح في السيرفر وتحديث لقطة الشاشة فوراً"""
+    return await browser_mouse_click(payload.x, payload.y)
+
+
+@app.post("/api/auth/google/type", tags=["Cookie Hub"])
+async def google_auth_type(payload: GoogleTypeRequest, request: Request, admin: bool = Depends(require_admin)):
+    """كتابة نص في الحقل النشط بمتصفح السيرفر"""
+    return await browser_keyboard_type(payload.text, payload.enter)
+
+
+@app.post("/api/auth/google/key", tags=["Cookie Hub"])
+async def google_auth_key(payload: GoogleKeyRequest, request: Request, admin: bool = Depends(require_admin)):
+    """إرسال ضغطة مفتاح خاصة للمتصفح (Enter, Tab, Backspace...)"""
+    return await browser_keyboard_key(payload.key)
+
+
+@app.post("/api/auth/google/reload", tags=["Cookie Hub"])
+async def google_auth_reload(request: Request, admin: bool = Depends(require_admin)):
+    """إعادة تحميل الصفحة في متصفح السيرفر"""
+    return await browser_reload_page()
+
+
+@app.post("/api/auth/google/extract", tags=["Cookie Hub"])
+async def google_auth_extract_now(request: Request, admin: bool = Depends(require_admin)):
+    """استخراج الكوكيز وحفظها يدوياً فوراً دون انتظار"""
+    return await browser_manual_extract()
 
 
 
