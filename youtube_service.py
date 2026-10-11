@@ -3,7 +3,8 @@ import time
 import math
 import shutil
 import logging
-from typing import Dict, Any, List, Optional
+import socket
+from typing import Dict, Any, List, Optional, Tuple
 import yt_dlp
 from log_manager import YtDlpLogger
 from cookie_manager import get_active_cookie_path, save_cookies_content, analyze_cookies_health, read_active_cookies
@@ -63,32 +64,39 @@ def _get_js_runtime_config() -> Dict[str, Any]:
     return runtimes
 
 
+def check_ipv6_support() -> Tuple[bool, str]:
+    """فحص سريع لوجود مسار واتصال IPv6 فعّال بالإنترنت."""
+    try:
+        s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        s.settimeout(2.0)
+        # الاتصال بمخدم DNS العام لـ Google عبر IPv6
+        s.connect(('2001:4860:4860::8888', 53))
+        local_ip = s.getsockname()[0]
+        s.close()
+        return True, local_ip
+    except Exception as e:
+        return False, str(e)
+
+
 def _build_ipv6_opts(sec_cfg: Dict[str, Any], has_cookies: bool) -> Dict[str, Any]:
     """
-    بناء خيارات IPv6 الذكية الانتقائية:
-    - يستخدم force_ipv6 المدمج في yt-dlp (الذي يدعم dual-stack fallback)
-    - يتجنب source_address='::' الكلي الذي يكسر GitHub وخدمات IPv4-only
-    - عند وجود كوكيز: يسجّل تحذيراً لأن تغيير IP قد يُبطل الجلسة مع YouTube
+    بناء خيارات IPv6 لـ yt-dlp:
+    - في مكتبة yt-dlp، المعامل الرسمي لفرض الاتصال عبر IPv6 هو: source_address='::'
+    - هذا يجبر مقابس الشبكة (Sockets) على استخدام AF_INET6 للاتصال بمخدمات YouTube،
+      مما يتفادى حظر عناوين IPv4 لمراكز البيانات والـ Cloud.
     """
     opts = {}
-    if not sec_cfg.get("force_ipv6"):
+    if not sec_cfg.get("force_ipv6", True):
         return opts
 
-    # force_ipv6 في yt-dlp يُفعّل IPv6 لطلبات YouTube فقط مع الحفاظ على
-    # dual-stack fallback لخدمات مثل GitHub (مصدر مكتبات فك التحديات)
+    # المعامل الحقيقي في yt-dlp المكافئ لـ --force-ipv6
+    opts['source_address'] = '::'
     opts['force_ipv6'] = True
 
     if has_cookies:
-        # تحذير مهم: إذا كانت الكوكيز مسجّلة من جلسة IPv4، فإن YouTube
-        # قد يرفضها إذا جاء الطلب من عنوان IPv6 مختلف تماماً.
-        # الحل: نبقي force_ipv6 فعّالاً لكن لا نضيف source_address
-        # بحيث يلجأ yt-dlp لـ IPv6 عند توفره ويتراجع لـ IPv4 عند الحاجة.
-        logger.warning(
-            "IPv6 is active with cookies. If YouTube rejects the session, "
-            "disable force_ipv6 or refresh cookies via an IPv6 browser session."
-        )
+        logger.info("IPv6 source binding ('::') active with cookies for YouTube extraction.")
     else:
-        logger.info("Selective IPv6 active (guest mode) — YouTube endpoints only, GitHub fallback preserved.")
+        logger.info("IPv6 source binding ('::') active in guest mode for YouTube extraction.")
 
     return opts
 
@@ -176,6 +184,23 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
             if not info:
                 raise ValueError("No video data returned by yt-dlp.")
             return info
+    except Exception as e:
+        err_msg = str(e).lower()
+        # إذا كان الخطأ متعلقاً بعدم توفر مسار شبكة IPv6 على المضيف، نتراجع لـ IPv4 فوراً دون فشل الطلب
+        if ydl_opts.get('source_address') == '::' and any(kw in err_msg for kw in [
+            'no remote ipv6', 'network is unreachable', 'winerror 10051',
+            'cant use "::"', "can't use \"::\"", 'address family not supported'
+        ]):
+            logger.warning("IPv6 is not routable on this host environment; retrying extraction with IPv4 fallback...")
+            fallback_opts = dict(ydl_opts)
+            fallback_opts.pop('source_address', None)
+            fallback_opts.pop('force_ipv6', None)
+            with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if not info:
+                    raise ValueError("No video data returned by yt-dlp on IPv4 fallback.")
+                return info
+        raise e
     finally:
         if runtime_cookie and os.path.exists(runtime_cookie):
             try:

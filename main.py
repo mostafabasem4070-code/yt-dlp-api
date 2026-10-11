@@ -22,7 +22,7 @@ limiter = Limiter(key_func=get_remote_address)
 extraction_cache = TTLCache(maxsize=500, ttl=3600)  # 1 hour cache
 
 from log_manager import get_recent_logs, clear_logs, setup_logging_capture
-from youtube_service import extract_youtube_info, get_cookie_file_path, test_cookie_health_live
+from youtube_service import extract_youtube_info, get_cookie_file_path, test_cookie_health_live, check_ipv6_support
 from stream_service import (
     get_stream_metadata,
     parse_range_header,
@@ -621,6 +621,8 @@ def debug_info():
             "ffmpeg_path": shutil.which("ffmpeg"),
             "current_directory": os.getcwd(),
             "environment_cookies_set": bool(os.getenv("YOUTUBE_COOKIES")),
+            "force_ipv6_enabled": get_security_settings().get("force_ipv6", True),
+            "ipv6_available_on_host": check_ipv6_support()[0],
             "files_in_current_dir": [f for f in os.listdir(os.getcwd()) if not f.startswith('.')]
         }
     except Exception as e:

@@ -72,7 +72,7 @@ def _load_config() -> Dict[str, Any]:
         "strict_mode": env_strict,
         "api_key": default_api_key,
         "worker_pool": [],
-        "force_ipv6": False,
+        "force_ipv6": True,
         "use_oauth2": False,
         "po_token": "",
         "visitor_data": "",
