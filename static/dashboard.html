@@ -923,7 +923,16 @@
                     </div>
                 </div>
 
-                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                <div style="display:flex; align-items:center; gap:6px; flex-shrink:0; flex-wrap:wrap;">
+                    <button class="btn-action" style="padding:6px 10px; font-size:0.8rem;" onclick="navigateRemoteBrowser('https://www.youtube.com')" title="فتح موقع YouTube مباشرة">
+                        📺 <span>يوتيوب</span>
+                    </button>
+                    <button class="btn-action" style="padding:6px 10px; font-size:0.8rem;" onclick="navigateRemoteBrowser('https://accounts.google.com/ServiceLogin?service=youtube&hl=ar')" title="فتح صفحة دخول Google المباشرة">
+                        🔐 <span>دخول Google</span>
+                    </button>
+                    <button class="btn-action cyan" style="padding:6px 10px; font-size:0.8rem;" onclick="navigateRemoteBrowser('https://stackoverflow.com/users/login')" title="تسجيل الدخول عبر Google SSO لتفادي كشف البوت">
+                        🌐 <span>دخول بديل (SSO)</span>
+                    </button>
                     <button class="btn-action" style="padding:6px 10px; font-size:0.8rem;" onclick="reloadRemoteBrowser()" title="إعادة تحميل الصفحة">
                         🔄 <span>تحديث</span>
                     </button>

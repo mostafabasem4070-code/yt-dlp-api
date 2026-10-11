@@ -69,6 +69,7 @@ from google_auth_service import (
     browser_keyboard_type,
     browser_keyboard_key,
     browser_reload_page,
+    browser_navigate_to,
     browser_manual_extract
 )
 
@@ -572,6 +573,16 @@ async def google_auth_key(payload: GoogleKeyRequest, request: Request, admin: bo
 async def google_auth_reload(request: Request, admin: bool = Depends(require_admin)):
     """إعادة تحميل الصفحة في متصفح السيرفر"""
     return await browser_reload_page()
+
+
+class GoogleNavigateRequest(BaseModel):
+    url: str = Field(..., description="الرابط المراد الانتقال إليه")
+
+
+@app.post("/api/auth/google/navigate", tags=["Cookie Hub"])
+async def google_auth_navigate(payload: GoogleNavigateRequest, request: Request, admin: bool = Depends(require_admin)):
+    """الانتقال لعنوان URL محدد في متصفح السيرفر (مثل YouTube أو تسجيل دخول بديل)"""
+    return await browser_navigate_to(payload.url)
 
 
 @app.post("/api/auth/google/extract", tags=["Cookie Hub"])

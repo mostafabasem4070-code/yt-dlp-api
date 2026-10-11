@@ -389,6 +389,28 @@ async function cancelGoogleLogin() {
     }
 }
 
+async function navigateRemoteBrowser(url) {
+    _isActionPending = true;
+    setBrowserSpinner(true, 'جاري الانتقال للرابط...');
+
+    try {
+        const res = await apiFetch('/api/auth/google/navigate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+        if (data.success) {
+            updateRemoteBrowserView(data);
+        }
+    } catch (err) {
+        console.error('Navigate error:', err);
+    } finally {
+        _isActionPending = false;
+        setBrowserSpinner(false);
+    }
+}
+
 // تصدير الدوال للنطاق العام
 window.loadGoogleAuthStatus = loadGoogleAuthStatus;
 window.startGoogleLogin = startGoogleLogin;
@@ -399,4 +421,5 @@ window.handleBrowserScreenClick = handleBrowserScreenClick;
 window.sendBrowserTypedText = sendBrowserTypedText;
 window.sendBrowserKey = sendBrowserKey;
 window.reloadRemoteBrowser = reloadRemoteBrowser;
+window.navigateRemoteBrowser = navigateRemoteBrowser;
 window.extractCookiesNow = extractCookiesNow;

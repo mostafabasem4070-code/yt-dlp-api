@@ -1,15 +1,17 @@
 """
 google_auth_service.py
 ======================
-خدمة تسجيل الدخول التفاعلي والتلقائي لحساب Google/YouTube عبر متصفح Chromium.
+خدمة تسجيل الدخول التفاعلي والتلقائي لحساب Google/YouTube عبر متصفح Chromium / Chrome.
 تعمل على السيرفر مع شاشة تحكم حية (Interactive Remote Browser) لاستخراج الكوكيز
 مباشرةً من عنوان IP السيرفر (IPv4/IPv6) وتفادي الحظر.
 
-المزايا:
-1. يدعم Xvfb افتراضياً على خوادم لينكس/Docker لتشغيل المتصفح كمتصفح كامل (Headed) دون شاشة فعلية.
-2. بث حي للقطات شاشة المتصفح (Screenshots) مع إمكانية النقر والكتابة من لوحة التحكم مباشرة.
-3. استخراج تلقائي للكوكيز فور تسجيل الدخول، أو استخراج فوري يدوي بضغطة زر.
-4. تحويل وحفظ الكوكيز تلقائياً بصيغة Netscape HTTP Cookie File داخل cookies.txt.
+المزايا المتقدمة لتجاوز كشف البوت (Anti-Detection & Stealth):
+1. استخدام launch_persistent_context مع ملف تعريف ثابت (.browser_profile) لتفادي وضع التخفي الآلي.
+2. تعطيل أعلام الأتمتة بالكامل عبر ignore_default_args=['--enable-automation'].
+3. تعطيل مؤشرات التحكم الآلي عبر --disable-blink-features=AutomationControlled.
+4. دعم قناة Google Chrome الرسمية (channel="chrome") عند توفرها لتجاوز كشف "المتصفح غير آمن".
+5. دعم Xvfb تلقائياً على خوادم لينكس/Docker.
+6. واجهة تحكم تفاعلية متكاملة (نقر، كتابة، تنقل حر بين YouTube ودخول Google و SSO).
 """
 
 import os
@@ -27,6 +29,7 @@ logger = logging.getLogger("google_auth_service")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 COOKIES_FILE = os.path.join(BASE_DIR, "cookies.txt")
 RUNTIME_COOKIES_FILE = os.path.join(BASE_DIR, "cookies_runtime.txt")
+BROWSER_PROFILE_DIR = os.path.join(BASE_DIR, ".browser_profile")
 
 # حالة الجلسة
 _auth_session: Dict[str, Any] = {
@@ -42,7 +45,6 @@ _auth_session: Dict[str, Any] = {
 _auth_lock = asyncio.Lock()
 
 # مراجع المتصفح النشط
-_active_browser = None
 _active_context = None
 _active_page = None
 _active_pw = None
@@ -136,8 +138,8 @@ async def start_google_login_session(
 ) -> Dict[str, Any]:
     """
     بدء جلسة تسجيل الدخول التفاعلية لـ Google.
-    - على ويندوز: يفتح نافذة متصفح حقيقية على سطح المكتب + بث في لوحة التحكم.
-    - على لينكس/سيرفر: يستخدم Xvfb لفتح نافذة مرئية افتراضية مع إتاحة التحكم بها عبر البث التفاعلي باللوحة.
+    - على ويندوز: يفتح متصفح مستمر على سطح المكتب + بث في لوحة التحكم.
+    - على لينكس/سيرفر: يستخدم Xvfb لفتح متصفح حقيقي مع ملف تعريف دائم لتجاوز كشف "غير آمن".
     """
     global _auth_session
 
@@ -153,7 +155,7 @@ async def start_google_login_session(
             status="running",
             started_at=time.time(),
             finished_at=None,
-            message="جاري تهيئة المتصفح على السيرفر...",
+            message="جاري تجهيز المتصفح ومضادات كشف البوت...",
             cookies_count=0,
             current_url="",
             page_title="",
@@ -171,8 +173,8 @@ async def start_google_login_session(
 
 
 async def _run_login_session(timeout_minutes: int, headless_override: Optional[bool], target_url: str):
-    """المنطق الفعلي لتشغيل متصفح Playwright ومراقبته."""
-    global _active_browser, _active_context, _active_page, _active_pw
+    """المنطق الفعلي لتشغيل متصفح Playwright ومراقبته مع تطبيق أحدث معايير التخفي (Stealth)."""
+    global _active_context, _active_page, _active_pw
 
     try:
         from playwright.async_api import async_playwright
@@ -196,10 +198,9 @@ async def _run_login_session(timeout_minutes: int, headless_override: Optional[b
         if sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
             use_headless = True
         else:
-            use_headless = False  # متصفح كامل مع واجهة رسومية (أو شاشة افتراضية Xvfb)
+            use_headless = False
 
     pw = None
-    browser = None
     context = None
     page = None
 
@@ -207,51 +208,69 @@ async def _run_login_session(timeout_minutes: int, headless_override: Optional[b
         pw = await async_playwright().start()
         _active_pw = pw
 
-        _update_session(message="جاري فتح متصفح Chromium...")
+        _update_session(message="جاري فتح متصفح التخفي المستمر...")
+
+        # مجلد البروفايل الدائم لتجنب اعتبار الجلسة مؤقتة/بوت من قِبل جوجل
+        os.makedirs(BROWSER_PROFILE_DIR, exist_ok=True)
 
         launch_args = [
             "--no-sandbox",
             "--disable-setuid-sandbox",
             "--disable-blink-features=AutomationControlled",
             "--disable-infobars",
+            "--disable-dev-shm-usage",
+            "--disable-features=IsolateOrigins,site-per-process",
             "--window-size=1280,800",
-            "--start-maximized",
             "--lang=ar-EG,ar",
         ]
 
-        try:
-            browser = await pw.chromium.launch(headless=use_headless, args=launch_args)
-        except Exception as launch_err:
-            # إذا فشل التشغيل بـ headed، نحاول بـ headless لتفادي توقف السيرفر
-            logger.warning(f"Headed launch failed ({launch_err}), attempting headless: True...")
-            use_headless = True
-            browser = await pw.chromium.launch(headless=True, args=launch_args)
+        # محاولة فتح Chrome الحقيقي أولاً إذا كان مثبتاً، أو Chromium الافتراضي
+        # هذا يحل مشكلة Google: "قد يكون هذا المتصفح أو التطبيق غير آمن"
+        context = None
+        for channel in ("chrome", None):
+            try:
+                launch_kwargs = {
+                    "user_data_dir": BROWSER_PROFILE_DIR,
+                    "headless": use_headless,
+                    "ignore_default_args": ["--enable-automation"],
+                    "args": launch_args,
+                    "viewport": {"width": 1280, "height": 800},
+                    "locale": "ar-EG",
+                }
+                if channel:
+                    launch_kwargs["channel"] = channel
 
-        _active_browser = browser
+                context = await pw.chromium.launch_persistent_context(**launch_kwargs)
+                logger.info(f"Launched persistent context successfully (channel={channel}, headless={use_headless})")
+                break
+            except Exception as ch_err:
+                logger.info(f"Launch with channel={channel} not available: {ch_err}")
+                continue
 
-        context = await browser.new_context(
-            locale="ar-EG",
-            viewport={"width": 1280, "height": 800},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        )
+        if not context:
+            # إذا فشل كل شيء، نحاول وضع headless=True مع Chromium
+            context = await pw.chromium.launch_persistent_context(
+                user_data_dir=BROWSER_PROFILE_DIR,
+                headless=True,
+                ignore_default_args=["--enable-automation"],
+                args=launch_args,
+                viewport={"width": 1280, "height": 800},
+                locale="ar-EG",
+            )
+
         _active_context = context
 
-        page = await context.new_page()
+        # أخذ الصفحة الأولى أو إنشاء صفحة جديدة
+        page = context.pages[0] if context.pages else await context.new_page()
         _active_page = page
-
-        # تمويه علامات الأتمتة لمنع كشف البوت من جوجل
-        await page.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-            window.chrome = { runtime: {} };
-        """)
 
         _update_session(
             status="waiting_login",
-            message=f"المتصفح مفتوح. يرجى تسجيل الدخول في النافذة التفاعلية. (المهلة: {timeout_minutes} دقيقة)",
+            message=f"المتصفح جاهز في النافذة التفاعلية. (المهلة: {timeout_minutes} دقيقة)",
             current_url=target_url,
         )
 
+        # تحميل صفحة تسجيل الدخول
         try:
             await page.goto(target_url, wait_until="domcontentloaded", timeout=40000)
         except Exception as nav_e:
@@ -262,7 +281,6 @@ async def _run_login_session(timeout_minutes: int, headless_override: Optional[b
         authenticated = False
 
         while time.time() < deadline:
-            # إذا أُلغيت الجلسة من المستخدم أو تم استخراجها يدوياً
             if _auth_session["status"] in ("idle", "done", "error"):
                 return
 
@@ -297,7 +315,6 @@ async def _run_login_session(timeout_minutes: int, headless_override: Optional[b
 
         if authenticated:
             _update_session(status="extracting", message="تم كشف الجلسة! جاري استخراج وحفظ الكوكيز...")
-            # إعطاء فرصة ثانية لكتابة جميع كوكيز الجلسة
             await asyncio.sleep(2)
             all_cookies = await context.cookies()
             await _save_extracted_cookies(all_cookies)
@@ -324,7 +341,7 @@ async def _run_login_session(timeout_minutes: int, headless_override: Optional[b
 
 async def _cleanup_browser_resources():
     """تنظيف وإغلاق موارد المتصفح بأمان."""
-    global _active_browser, _active_context, _active_page, _active_pw
+    global _active_context, _active_page, _active_pw
     try:
         if _active_page and not _active_page.is_closed():
             await _active_page.close()
@@ -336,11 +353,6 @@ async def _cleanup_browser_resources():
     except Exception:
         pass
     try:
-        if _active_browser:
-            await _active_browser.close()
-    except Exception:
-        pass
-    try:
         if _active_pw:
             await _active_pw.stop()
     except Exception:
@@ -348,7 +360,6 @@ async def _cleanup_browser_resources():
 
     _active_page = None
     _active_context = None
-    _active_browser = None
     _active_pw = None
 
 
@@ -404,7 +415,7 @@ async def browser_keyboard_type(text: str, press_enter: bool = False) -> Dict[st
         return {"success": False, "message": "لا يوجد متصفح نشط."}
 
     try:
-        await _active_page.keyboard.type(text, delay=30)
+        await _active_page.keyboard.type(text, delay=35)
         if press_enter:
             await asyncio.sleep(0.2)
             await _active_page.keyboard.press("Enter")
@@ -436,6 +447,20 @@ async def browser_reload_page() -> Dict[str, Any]:
 
     try:
         await _active_page.reload(wait_until="domcontentloaded", timeout=20000)
+        await asyncio.sleep(0.5)
+        return await capture_browser_screenshot()
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+async def browser_navigate_to(url: str) -> Dict[str, Any]:
+    """الانتقال لعنوان URL محدد في المتصفح (مثلاً YouTube أو صفحة SSO)."""
+    global _active_page
+    if not _active_page or _active_page.is_closed():
+        return {"success": False, "message": "لا يوجد متصفح نشط."}
+
+    try:
+        await _active_page.goto(url, wait_until="domcontentloaded", timeout=30000)
         await asyncio.sleep(0.5)
         return await capture_browser_screenshot()
     except Exception as e:
