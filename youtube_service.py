@@ -73,8 +73,9 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
         'logger': YtDlpLogger(),
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
         },
+        'format_sort': ['lang:orig', 'lang', 'quality', 'res', 'fps'],
         'remote_components': {'ejs:github'},
         'sleep_interval_requests': 1,
         'max_sleep_interval_requests': 3
@@ -83,9 +84,10 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
     sec_cfg = get_security_settings()
 
     if sec_cfg.get("force_ipv6"):
-        ydl_opts['source_address'] = '::'
+        # نعتمد على force_ipv6 المدمج في yt-dlp دون إجبار source_address = '::'
+        # لتفادي منع الاتصال بموقع GitHub (الذي يعمل بـ IPv4 فقط) لتحميل سكريبتات فك التحديات
         ydl_opts['force_ipv6'] = True
-        logger.info("Using forced IPv6.")
+        logger.info("Using forced IPv6 for YouTube endpoints (dual-stack fallback preserved).")
 
     if sec_cfg.get("use_oauth2"):
         ydl_opts['username'] = 'oauth2'
@@ -154,7 +156,7 @@ def _run_yt_dlp(url: str, use_cookies: bool = True, custom_clients: Optional[Lis
 def extract_youtube_info(url: str) -> Dict[str, Any]:
     """
     استخراج تفاصيل الفيديو والروابط المباشرة المؤقتة مع آلية متطورة متعددة المراحل
-    لتجاوز أخطاء البوت أو انتهاء الكوكيز بأفضل أداء ممكن عبر مشغلات بديلة (tv_embedded, android_vr, web_embedded).
+    لتجاوز أخطاء البوت أو انتهاء الكوكيز بأفضل أداء ممكن عبر مشغلات بديلة (tv_downgraded, android_vr, web_embedded).
     """
     info = None
     last_error = None
@@ -173,16 +175,15 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
             last_error = e
             logger.warning(f"Strategy 1 (Cookies) failed: {e}")
 
-    # مرحلة 2: إذا فشلت الكوكيز أو لم تكن متوفرة، تجربة مشغل tv_embedded بدون كوكيز
-    # مشغل التلفاز الذكي يتميز بقدرته على تجاوز فحص البوت الخاص بالمتصفحات واستخراج حتى 1080p60
+    # مرحلة 2: إذا فشلت الكوكيز أو لم تكن متوفرة، تجربة مشغل tv_downgraded بدون كوكيز
     if not info:
         try:
-            logger.info(f"Strategy 2 (TV Embedded Guest): Retrying with tv_embedded without cookies...")
-            info = _run_yt_dlp(url, use_cookies=False, custom_clients=['tv_embedded'])
-            strategy_used = "tv_embedded_guest"
+            logger.info(f"Strategy 2 (TV Downgraded Guest): Retrying with tv_downgraded without cookies...")
+            info = _run_yt_dlp(url, use_cookies=False, custom_clients=['tv_downgraded'])
+            strategy_used = "tv_downgraded_guest"
         except Exception as e:
             last_error = e
-            logger.warning(f"Strategy 2 (TV Embedded) failed: {e}")
+            logger.warning(f"Strategy 2 (TV Downgraded) failed: {e}")
 
     # مرحلة 3: تجربة مشغلات الواقع الافتراضي والهاتف android_vr و android بدون كوكيز
     # تطبيقات الهاتف تستخدم واجهات API مختلفة تماماً عن متصفحات الويب
@@ -247,6 +248,22 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
         filesize = f.get("filesize") or f.get("filesize_approx")
         filesize_str = format_bytes(filesize)
 
+        format_note_str = str(f.get("format_note") or "")
+        lang = f.get("language")
+        lang_pref = f.get("language_preference") or 0
+        
+        # كشف ما إذا كان المسار هو الصوت الأصلي للفيديو (Original Language) وتجنب الدبلجة
+        is_original = bool(
+            lang_pref > 0 or 
+            "original" in format_note_str.lower() or 
+            f.get("is_original") is True
+        )
+        # إذا لم يكن هناك أي مؤشر دبلجة وكان الفيديو أحادي الصوت
+        is_dubbed = bool(
+            "dubbed" in format_note_str.lower() or 
+            lang_pref < 0
+        )
+
         format_data = {
             "format_id": f.get("format_id"),
             "ext": f.get("ext"),
@@ -263,6 +280,10 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
             "vbr_kbps": f.get("vbr"),
             "container": f.get("container"),
             "protocol": f.get("protocol"),
+            "language": lang,
+            "language_preference": lang_pref,
+            "is_original": is_original and not is_dubbed,
+            "audio_channels": f.get("audio_channels"),
             "url": direct_url,
         }
 
@@ -276,12 +297,16 @@ def extract_youtube_info(url: str) -> Dict[str, Any]:
     def sort_by_height(item):
         return item.get("height") or 0
 
-    def sort_by_abr(item):
-        return item.get("abr_kbps") or 0
+    def sort_audio_priority(item):
+        # تقديم الصوت الأصلي أولاً دائماً، ثم حسب معدل البت abr
+        is_orig_val = 1 if item.get("is_original") else 0
+        lang_pref_val = item.get("language_preference") or 0
+        abr_val = item.get("abr_kbps") or 0
+        return (is_orig_val, lang_pref_val, abr_val)
 
     video_with_audio.sort(key=sort_by_height, reverse=True)
     video_only.sort(key=sort_by_height, reverse=True)
-    audio_only.sort(key=sort_by_abr, reverse=True)
+    audio_only.sort(key=sort_audio_priority, reverse=True)
 
     return {
         "status": "success",

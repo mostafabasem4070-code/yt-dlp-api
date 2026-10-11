@@ -27,6 +27,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# تحميل وتخزين مكتبة فك التحديات مسبقاً لضمان عملها فورياً دون الحاجة لتنزيلها أثناء تشغيل السيرفر
+RUN mkdir -p /root/.cache/yt-dlp/challenge-solver \
+    && (curl -fsSL -o /root/.cache/yt-dlp/challenge-solver/lib.json https://github.com/yt-dlp/ejs/releases/latest/download/yt.solver.lib.min.js || true)
+
 # نسخ كود المشروع بالكامل
 COPY . .
 

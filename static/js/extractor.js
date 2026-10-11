@@ -64,7 +64,12 @@ function renderExtractResult(data) {
                     <div style="display:flex; flex-wrap:wrap; gap:8px;">
             `;
             arr.forEach(s => {
-                const label = s.quality_note || s.resolution || s.format_note || (s.abr_kbps ? `${s.abr_kbps} kbps` : 'stream');
+                let label = s.quality_note || s.resolution || s.format_note || (s.abr_kbps ? `${s.abr_kbps} kbps` : 'stream');
+                if (s.is_original) {
+                    label = `★ أصلي: ${label}`;
+                } else if (s.language) {
+                    label = `[${s.language}] ${label}`;
+                }
                 const sizeText = s.filesize_readable ? ` • ${s.filesize_readable}` : '';
                 streamListHtml += `
                     <a href="${s.url}" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:6px; padding:7px 14px; background:${cat.color}; border:1px solid ${cat.border}; border-radius:var(--radius-md); color:${cat.textColor}; text-decoration:none; font-size:0.84rem; font-family:var(--font-mono); font-weight:600; transition:transform 0.15s ease;">
